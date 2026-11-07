@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test
+
+  # The test runner needs Node 22+, but draftr itself supports Node 20:
+  # build on 22, then run the CLI on 20 against every example.
+  node20-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Examples stay lint-clean on Node 20
+        run: |
+          node --version
+          for f in examples/checkout.json examples/draftr.json examples/login.mmd examples/pipeline.mmd; do
+            node dist/cli.js build "$f" -o "out/$(basename "${f%.*}")" --no-png
+          done
+          node dist/cli.js tidy examples/messy.excalidraw -o out/messy.tidy --no-png

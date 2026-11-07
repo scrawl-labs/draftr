@@ -1,0 +1,45 @@
+name: Bug report
+description: A diagram came out wrong, or draftr crashed.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        > This is a side project. Please include enough detail to reproduce — vague reports may be closed without action.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did draftr produce, and what did you expect instead? Screenshots help a lot.
+      placeholder: When I built ..., the arrow from A to B went straight through C.
+    validations:
+      required: true
+
+  - type: textarea
+    id: input
+    attributes:
+      label: Input
+      description: The graph JSON, Mermaid source, or .excalidraw file you used (or the smallest version that still shows the problem).
+      render: json
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: Command or tool call
+      placeholder: draftr build diagram.json  /  build_diagram via Claude Code
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: draftr version and Node version
+      placeholder: draftr 0.1.0, Node 22.11
+    validations:
+      required: true

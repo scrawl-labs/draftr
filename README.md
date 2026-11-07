@@ -1,0 +1,286 @@
+# draftr
+
+<p align="center">
+  <img src=".github/assets/draftr.png" width="900"/>
+</p>
+
+<p align="center"><strong>Diagrams for AI agents. The model says <em>what</em>. draftr decides <em>where</em>. A linter says what's wrong.</strong></p>
+
+> **Side project notice** — Maintained as a side project. Best-effort response time on issues and PRs. For production use, please pin specific versions.
+
+draftr is a CLI and an MCP server that turns a **semantic graph** (nodes, edges, groups — no coordinates) into a clean, **editable Excalidraw diagram**, an SVG and a PNG. Then it runs a **deterministic diagram linter** over the result and hands the agent a report with element ids and concrete fixes.
+
+It also works in the other direction: point it at an existing `.excalidraw` file — hand-drawn, or hand-*written* by a model — and it will tell you exactly what's broken, or recover the graph and re-lay it out cleanly.
+
+The image above was drawn by draftr from [`examples/draftr.json`](./examples/draftr.json).
+
+## Why this exists
+
+Ask a model for an architecture diagram and today it does one of two things.
+
+It writes Mermaid. Fine for a README, but you can't touch it, and it looks like every other Mermaid diagram.
+
+Or it writes Excalidraw JSON **by hand** — every `x`, `y`, `width` and arrow point — then renders a PNG and squints at it to find overlaps. That's thousands of output tokens of coordinates, two to four render-look-fix loops, and it still ships boxes whose labels spill out of them and arrows that cut through the database.
+
+Coordinates are not the model's job. Layout is a solved problem ([ELK](https://eclipse.dev/elk/) has been doing it for a decade), and "do these two rectangles overlap?" is a question for geometry, not for a vision model.
+
+So draftr splits the work:
+
+| Step | Who | What |
+| --- | --- | --- |
+| **Describe** | the model | nodes, edges, groups, what to `highlight`. Or Mermaid. Or a sequence of messages. |
+| **Lay out** | draftr | ELK layered layout, orthogonal edge routing, real nested groups, CJK-aware text sizing |
+| **Emit** | draftr | `.excalidraw` with arrows **bound** to shapes (drag a box, its arrows follow), offline `.svg`, `.png` |
+| **Check** | draftr | 12 deterministic lint rules, each finding names element ids and a fix |
+| **Look** | the model | one PNG preview, to judge whether the diagram makes its point — not to hunt for overlaps |
+
+## Install
+
+Not on npm yet. From source:
+
+```bash
+git clone https://github.com/scrawl-labs/draftr.git
+cd draftr
+pnpm install
+pnpm build
+```
+
+PNG output and previews need Playwright with Chromium. Everything else (layout, `.excalidraw`, `.svg`, lint, tidy) is pure Node and works without it:
+
+```bash
+pnpm add playwright        # optional peer dependency
+npx playwright install chromium
+```
+
+Wire it into your MCP client. For Claude Code:
+
+```bash
+claude mcp add draftr --scope user -- node /absolute/path/to/draftr/dist/mcp.js
+```
+
+Or in a project-local **`.mcp.json`** (share it with your team via git):
+
+```json
+{
+  "mcpServers": {
+    "draftr": {
+      "command": "node",
+      "args": ["/absolute/path/to/draftr/dist/mcp.js"]
+    }
+  }
+}
+```
+
+Restart your agent. That's it. No env vars, no API keys, no network — draftr never leaves your machine.
+
+## Tools
+
+#### 🧭 `build_diagram`
+
+Architecture and flow diagrams from a semantic graph. Writes `.excalidraw` + `.svg`, returns the lint report and a PNG preview.
+
+> "draw how a checkout request flows through our services, highlight the payment call"
+
+#### 🔁 `build_sequence`
+
+Sequence diagrams from participants and ordered messages. Columns are spaced so every label fits between the lifelines it connects; self-calls draw a loop; dashed = reply.
+
+> "draw the login sequence: user, web app, auth API, Redis, users DB"
+
+<p align="center"><img src=".github/assets/sequence.png" width="720"/></p>
+
+#### 🧜 `build_from_mermaid`
+
+Mermaid `flowchart` / `graph` and `sequenceDiagram` in, laid-out editable Excalidraw out. Upgrade the Mermaid already sitting in your docs.
+
+> "turn the mermaid diagram in docs/ci.md into an excalidraw file"
+
+<p align="center"><img src=".github/assets/mermaid.png" width="900"/></p>
+
+#### 🔍 `lint_diagram`
+
+Lint **any** `.excalidraw` file, including ones a human or another tool made.
+
+> "lint docs/architecture.excalidraw"
+
+```
+✖ score 56/100 — 4 error(s), 2 warning(s), 0 arrow crossing(s); 6 shapes, 1 groups, 5 connectors
+  E [shape-overlap] auth and orders overlap by 50×20px
+      fix: move orders at least 36px away
+  E [group-boundary] kafka straddles the edge of group frame
+      fix: move kafka fully inside or outside frame, or resize the group
+  E [text-over-shape] text auth_t ("Auth service (JWT)") spills out of auth by 71px
+      fix: widen auth to ≥201px, wrap the text, or bind it as the shape's label
+  W [arrow-through-text] a_orders_kafka runs through text l3 ("order.created")
+      fix: move the text off a_orders_kafka
+```
+
+#### 🧹 `tidy_diagram`
+
+Recover the graph from a messy file — shapes, labels (even ones that spill out of their box), kinds, groups, arrows and their labels — and re-lay it out. Prefer this to nudging coordinates by hand.
+
+> "tidy docs/architecture.excalidraw"
+
+| Before (hand-written, score 56) | After `tidy` (score 100) |
+| --- | --- |
+| <img src=".github/assets/tidy-before.png"/> | <img src=".github/assets/tidy-after.png"/> |
+
+#### 🖼️ `render_diagram`
+
+Render a `.excalidraw` file to PNG offline. No CDN, no browser tab.
+
+> "show me docs/architecture.excalidraw"
+
+## CLI
+
+The same engine, for scripts, CI and pre-commit hooks:
+
+```bash
+node dist/cli.js build  examples/checkout.json -o out/checkout   # graph → .excalidraw .svg .png + report
+node dist/cli.js build  examples/login.mmd                       # Mermaid works too
+node dist/cli.js lint   docs/architecture.excalidraw             # exit 1 on errors, --json for machines
+node dist/cli.js tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
+node dist/cli.js render docs/architecture.excalidraw --no-png    # offline SVG
+```
+
+`lint` exits non-zero on errors, so you can keep every diagram in your repo honest in CI:
+
+```bash
+for f in docs/**/*.excalidraw; do node dist/cli.js lint "$f" || exit 1; done
+```
+
+## Input formats
+
+### Graph
+
+```json
+{
+  "title": "Checkout flow",
+  "direction": "RIGHT",
+  "groups": [
+    { "id": "core", "label": "Core services" },
+    { "id": "async", "label": "Async workers", "parent": "core" }
+  ],
+  "nodes": [
+    { "id": "order", "label": "Order Service", "kind": "service", "group": "core", "highlight": true },
+    { "id": "db", "label": "orders DB", "kind": "database", "group": "core" },
+    { "id": "mail", "label": "이메일 발송 워커", "kind": "service", "group": "async" }
+  ],
+  "edges": [
+    { "from": "order", "to": "db", "label": "insert" },
+    { "from": "order", "to": "mail", "label": "publish", "style": "dashed" }
+  ]
+}
+```
+
+| Field | Values |
+| --- | --- |
+| `direction` | `RIGHT` (default), `DOWN`, `LEFT`, `UP` |
+| `kind` | `service`, `database`, `queue`, `external`, `user`, `client`, `storage`, `decision`, `note` |
+| `highlight` | on nodes and edges — the one or two things the diagram is *about* |
+| `style` | edges: `solid`, `dashed` (async / optional / reply) |
+| `groups[].parent` | nest groups (VPC → cluster → namespace) |
+
+Full example: [`examples/checkout.json`](./examples/checkout.json)
+
+<p align="center"><img src=".github/assets/checkout.png" width="900"/></p>
+
+### Sequence
+
+```json
+{
+  "type": "sequence",
+  "autonumber": true,
+  "participants": [{ "id": "u", "label": "User", "kind": "user" }, { "id": "api", "label": "Auth API" }],
+  "messages": [
+    { "from": "u", "to": "api", "label": "POST /login" },
+    { "from": "api", "to": "api", "label": "verify hash" },
+    { "from": "api", "to": "u", "label": "200 + tokens", "style": "dashed" }
+  ]
+}
+```
+
+### Mermaid
+
+`flowchart` / `graph` (all directions; `[]` `()` `([])` `[()]` `(())` `{}` `[//]` shapes; `-->` `---` `-.->` `==>`; `|label|` and `-- label -->`; chains; `A & B --> C`; nested `subgraph`) and `sequenceDiagram` (`participant` / `actor ... as ...`, `->>` `-->>` `->` `-->` `-x` `-)`, `autonumber`). Styling lines are ignored — draftr has its own theme.
+
+## Lint rules
+
+| Rule | Severity | Catches |
+| --- | --- | --- |
+| `shape-overlap` | error | two boxes on top of each other |
+| `shape-crowded` | warning | boxes closer than 16px |
+| `group-boundary` | error | a box half inside a group |
+| `text-overflow` | error | a label wider or taller than its box (CJK-aware; ellipse and diamond use the inscribed area) |
+| `text-over-shape` | error | free text spilling out of a box, or sitting on someone else's |
+| `text-overlap` | error | two free texts on top of each other |
+| `arrow-through-shape` | error | an arrow cutting through a box it doesn't connect |
+| `arrow-through-text` | warning | an arrow running through a label |
+| `arrow-crossing` | warning | arrows crossing each other |
+| `arrow-dangling` | warning | an arrow end attached to nothing |
+| `dangling-binding` / `dangling-container` | error | references to elements that don't exist |
+
+Free text fully inside a box counts as that box's label, so diagrams that don't use Excalidraw's text binding aren't punished for it. Sequence-diagram lifelines are structure, not connectors.
+
+## The workflows that actually help
+
+### Case A — "Explain this service to the new hire"
+
+```
+You:    "read src/checkout and draw how a request flows through it"
+Agent:  [build_diagram]  → score 100/100, preview attached
+You:    "the point is the payment call, make that obvious"
+Agent:  [build_diagram]  → payment node + edge highlighted
+```
+
+Two messages. No coordinates were harmed. The `.excalidraw` lands in `docs/`, editable by anyone.
+
+### Case B — The diagram everyone's afraid to touch
+
+```
+You:    "lint docs/architecture.excalidraw"
+Agent:  [lint_diagram]   → 4 errors: overlaps, a box straddling the VPC, 2 labels spilling out
+You:    "fix it"
+Agent:  [tidy_diagram]   → architecture.tidy.excalidraw, score 56 → 100
+```
+
+### Case C — Mermaid that outgrew Mermaid
+
+```
+You:    "convert the sequence diagram in docs/auth.md to excalidraw, highlight the token refresh"
+Agent:  [build_from_mermaid] → laid out and lint-clean
+Agent:  [build_sequence]     → same messages, refresh call marked highlight: true
+```
+
+## Tech stack
+
+- TypeScript, Node ≥ 20, pnpm
+- [`elkjs`](https://github.com/kieler/elkjs) — Eclipse Layout Kernel: layered layout, orthogonal routing, compound graphs
+- `@modelcontextprotocol/sdk` — MCP server over stdio
+- `zod` — input schemas (the same schemas the MCP tools advertise)
+- `playwright` — optional, only for PNG
+- Vitest — including a property-style test that lays out 40 random graphs (nested groups, CJK labels, every node kind) and requires zero lint errors
+
+Colors live in one file: [`src/theme.ts`](./src/theme.ts). Swap them for your brand.
+
+## Roadmap
+
+- [ ] Incremental layout — keep the boxes a human moved in Excalidraw, re-lay out only the rest
+- [ ] Code → graph extractors (module dependencies, HTTP routes, DB schema)
+- [ ] PR bot: before/after diagram of the changed flow on every pull request
+- [ ] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
+- [ ] tldraw and draw.io output
+- [ ] Publish to npm
+
+## Contributing
+
+Issues and PRs welcome — see the templates under `.github/ISSUE_TEMPLATE/`. Diagrams that come out wrong are the most useful bug reports: attach the input. This is a side project, so response time is best-effort.
+
+```bash
+pnpm install
+pnpm build && pnpm test
+```
+
+## License
+
+MIT — see [LICENSE](./LICENSE). Copyright (c) 2026 Yongtaek Lee.

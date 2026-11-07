@@ -1,0 +1,32 @@
+{
+  "title": "Checkout flow",
+  "direction": "RIGHT",
+  "groups": [
+    { "id": "edge", "label": "Edge" },
+    { "id": "core", "label": "Core services" },
+    { "id": "async", "label": "Async workers", "parent": "core" }
+  ],
+  "nodes": [
+    { "id": "user", "label": "Shopper", "kind": "user" },
+    { "id": "web", "label": "Web app", "kind": "client" },
+    { "id": "gw", "label": "API Gateway", "kind": "service", "group": "edge" },
+    { "id": "order", "label": "Order Service", "kind": "service", "group": "core", "highlight": true },
+    { "id": "pay", "label": "Payment Service", "kind": "service", "group": "core" },
+    { "id": "db", "label": "orders DB (MongoDB)", "kind": "database", "group": "core" },
+    { "id": "q", "label": "order.created", "kind": "queue", "group": "core" },
+    { "id": "mail", "label": "이메일 발송 워커", "kind": "service", "group": "async" },
+    { "id": "inv", "label": "Inventory worker", "kind": "service", "group": "async" },
+    { "id": "stripe", "label": "Stripe", "kind": "external" }
+  ],
+  "edges": [
+    { "from": "user", "to": "web", "label": "click Pay" },
+    { "from": "web", "to": "gw", "label": "POST /checkout" },
+    { "from": "gw", "to": "order" },
+    { "from": "order", "to": "pay", "label": "charge()", "highlight": true },
+    { "from": "pay", "to": "stripe", "label": "PaymentIntent" },
+    { "from": "order", "to": "db", "label": "insert" },
+    { "from": "order", "to": "q", "label": "publish", "style": "dashed" },
+    { "from": "q", "to": "mail", "style": "dashed" },
+    { "from": "q", "to": "inv", "style": "dashed" }
+  ]
+}

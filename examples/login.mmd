@@ -1,0 +1,16 @@
+sequenceDiagram
+  title: Login with refresh token
+  autonumber
+  actor U as User
+  participant W as Web app
+  participant A as Auth API
+  participant R as Redis
+  participant D as Users DB
+  U->>W: submit email + password
+  W->>A: POST /login
+  A->>D: find user by email
+  D-->>A: user row
+  A->>A: verify bcrypt hash
+  A->>R: SET refresh:{id} EX 14d
+  A-->>W: 200 access + refresh token
+  W-->>U: redirect to /home

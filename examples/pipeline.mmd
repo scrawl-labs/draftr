@@ -1,0 +1,12 @@
+flowchart LR
+  %% A CI pipeline, straight from a README
+  dev((Developer)) -->|git push| gh[GitHub]
+  gh --> ci[CI runner]
+  subgraph checks [Checks]
+    lint[Lint] & test[Unit tests] & e2e[E2E tests]
+  end
+  ci --> lint & test & e2e
+  lint & test & e2e --> gate{All green?}
+  gate ==>|yes| reg[(Container registry)]
+  gate -.->|no| slack[/Slack alert/]
+  reg --> deploy[Deploy to staging]

@@ -1,0 +1,103 @@
+#!/usr/bin/env node
+// MCP server: the model describes WHAT (semantic graph), draftr decides WHERE,
+// and returns a deterministic lint report + a PNG preview it can look at.
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
+import { build, buildMermaid, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildResult, type LintReport } from './index.js';
+import { createRequire } from 'node:module';
+
+const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
+
+type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
+
+const server = new McpServer({ name: 'draftr', version: pkg.version });
+
+const reportText = (r: LintReport) =>
+  [`${r.ok ? 'OK' : 'ISSUES'} score ${r.score}/100 — ${r.summary}`,
+    ...r.issues.map((i) => `- ${i.severity} [${i.code}] ${i.message}${i.fix ? ` → ${i.fix}` : ''} (elements: ${i.elements.join(', ')})`)].join('\n');
+
+async function preview(svg: string, want: boolean): Promise<Content[]> {
+  if (!want) return [];
+  try {
+    return [{ type: 'image', data: (await svgToPng(svg, { scale: 1 })).toString('base64'), mimeType: 'image/png' }];
+  } catch (e) {
+    return [{ type: 'text', text: `(preview unavailable: ${(e as Error).message})` }];
+  }
+}
+
+function writeOut(path: string, data: string): string {
+  const p = resolve(path);
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, data);
+  return p;
+}
+
+async function emit(res: BuildResult, out: string, want: boolean, extra = ''): Promise<{ content: Content[] }> {
+  const file = writeOut(out.endsWith('.excalidraw') ? out : `${out}.excalidraw`, JSON.stringify(res.excalidraw, null, 2));
+  const svgFile = writeOut(file.replace(/\.excalidraw$/, '.svg'), res.svg);
+  return { content: [{ type: 'text', text: `wrote ${file}\nwrote ${svgFile}\n${extra}${reportText(res.report)}` }, ...(await preview(res.svg, want))] };
+}
+
+const guard = <A>(fn: (a: A) => Promise<{ content: Content[] }>) => async (a: A) => {
+  try { return await fn(a); } catch (e) { return { isError: true, content: [{ type: 'text' as const, text: (e as Error).message }] }; }
+};
+
+const out = z.string().describe('output path for the .excalidraw file, e.g. docs/diagrams/checkout.excalidraw (an .svg is written next to it)');
+const wantPreview = z.boolean().default(true).describe('return a PNG preview');
+
+server.registerTool('build_diagram', {
+  title: 'Build an architecture / flow diagram',
+  description: [
+    'Create an architecture or flow diagram from a semantic graph. Give nodes, edges and groups only — never coordinates:',
+    'layout (ELK, orthogonal routing, nested groups) is computed for you. Writes .excalidraw + .svg and returns a lint report and a PNG preview.',
+    'Tips: mark the 1–2 nodes/edges that carry the point of the diagram with highlight:true; use groups for trust/deployment boundaries;',
+    'use dashed edges for async; kinds: service, database, queue, external, user, client, storage, decision, note.',
+  ].join(' '),
+  inputSchema: { graph: GraphSchema, out, preview: wantPreview },
+}, guard(async ({ graph, out: o, preview: p }) => emit(await build(graph), o, p)));
+
+server.registerTool('build_sequence', {
+  title: 'Build a sequence diagram',
+  description: 'Create a sequence diagram from participants and ordered messages (dashed = reply/async; a message to itself draws a loop). Column spacing is computed so every label fits. Writes .excalidraw + .svg and returns a lint report and a PNG preview.',
+  inputSchema: { sequence: SequenceSchema, out, preview: wantPreview },
+}, guard(async ({ sequence, out: o, preview: p }) => emit(await build(sequence), o, p)));
+
+server.registerTool('build_from_mermaid', {
+  title: 'Build a diagram from Mermaid',
+  description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable Excalidraw diagram with lint report and preview. Useful for upgrading existing Mermaid docs.',
+  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview },
+}, guard(async ({ source, out: o, preview: p }) => emit(await buildMermaid(source), o, p)));
+
+server.registerTool('lint_diagram', {
+  title: 'Lint an Excalidraw file',
+  description: 'Deterministic layout check for ANY .excalidraw file (including hand-written ones): overlaps, crowding, text overflow, arrows through shapes or text, arrow crossings, group-boundary violations, dangling arrows. Each issue names element ids and a concrete fix.',
+  inputSchema: { path: z.string(), preview: z.boolean().default(false) },
+}, guard(async ({ path, preview: p }) => {
+  const d = JSON.parse(readFileSync(resolve(path), 'utf8'));
+  return { content: [{ type: 'text', text: reportText(lint(d)) }, ...(await preview(toSvg(d), p))] };
+}));
+
+server.registerTool('tidy_diagram', {
+  title: 'Tidy a messy Excalidraw file',
+  description: 'Recover the graph (shapes, labels, arrows, groups) from an existing .excalidraw file and re-lay it out cleanly. Prefer this over hand-editing coordinates to fix lint errors.',
+  inputSchema: { path: z.string(), out: out.optional().describe('defaults to <name>.tidy.excalidraw'), preview: wantPreview },
+}, guard(async ({ path, out: o, preview: p }) => {
+  const res = await tidy(JSON.parse(readFileSync(resolve(path), 'utf8')));
+  return emit(res, o ?? resolve(path).replace(/\.excalidraw$/, '') + '.tidy.excalidraw', p, `before: score ${res.before.score}/100 — ${res.before.summary}\nafter:  `);
+}));
+
+server.registerTool('render_diagram', {
+  title: 'Render an Excalidraw file',
+  description: 'Render a .excalidraw file offline (no CDN) to a PNG preview; also writes an .svg next to it.',
+  inputSchema: { path: z.string() },
+}, guard(async ({ path }) => {
+  const p = resolve(path);
+  const svg = toSvg(JSON.parse(readFileSync(p, 'utf8')));
+  writeOut(p.replace(/\.excalidraw$/, '') + '.svg', svg);
+  return { content: await preview(svg, true) };
+}));
+
+await server.connect(new StdioServerTransport());
