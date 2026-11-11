@@ -48,6 +48,9 @@ export function toSvg(d: ExcalidrawDoc): string {
       let m = '';
       if (el.type === 'arrow' && el.endArrowhead) { markers.add(stroke); m = ` marker-end="url(#ah-${stroke.replace('#', '')})"`; }
       body.push(`<polyline points="${pts}" fill="none" stroke-linejoin="round" ${common}${m}/>`);
+    } else if (el.type === 'image') {
+      const f = d.files?.[String(el.fileId)];
+      if (f) body.push(`<image x="${r(el.x)}" y="${r(el.y)}" width="${r(el.width)}" height="${r(el.height)}" href="${f.dataURL}" preserveAspectRatio="xMidYMid meet"/>`);
     } else if (el.type === 'text') {
       body.push(renderText(el, el.containerId ? byId[el.containerId] : undefined));
     }

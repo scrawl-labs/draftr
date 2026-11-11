@@ -1,7 +1,29 @@
 // Scene -> Excalidraw JSON, plus small element factories shared with sequence.ts.
 import { measureText } from './measure.js';
 import { THEME } from './theme.js';
-import type { ExElement, ExcalidrawDoc, Pt, Scene } from './types.js';
+import type { ExElement, ExFile, ExcalidrawDoc, Pt, Scene } from './types.js';
+import type { Icon } from './icons/index.js';
+import { ICON_GAP, ICON_SIZE } from './layout.js';
+
+/** Collects icon SVGs as Excalidraw "files" so image elements can reference them. */
+export class FileStore {
+  files: Record<string, ExFile> = {};
+  add(icon: Icon, color?: string): string {
+    const id = `icon-${icon.source}-${icon.name}${color && icon.source !== 'custom' ? `-${color.replace('#', '')}` : ''}`;
+    if (!this.files[id]) {
+      this.files[id] = { id, mimeType: 'image/svg+xml', created: 1, dataURL: `data:image/svg+xml;base64,${Buffer.from(icon.svg(color)).toString('base64')}` };
+    }
+    return id;
+  }
+}
+
+export function iconImage(id: string, store: FileStore, icon: Icon, x: number, y: number, size: number, color: string | undefined, extra: Partial<ExElement> = {}): ExElement {
+  const fileId = store.add(icon, icon.source === 'brand' ? undefined : color);
+  return base('image', id, x, y, size, size, {
+    strokeColor: 'transparent', fileId, status: 'saved', scale: [1, 1], crop: null,
+    customData: { role: 'icon', icon: icon.name, source: icon.source }, ...extra,
+  });
+}
 
 let seed = 1000;
 export const resetSeed = () => { seed = 1000; };
@@ -40,12 +62,12 @@ export function polyline(type: 'arrow' | 'line', id: string, pts: Array<{ x: num
   });
 }
 
-export function doc(elements: ExElement[]): ExcalidrawDoc {
+export function doc(elements: ExElement[], files: Record<string, ExFile> = {}): ExcalidrawDoc {
   return {
     type: 'excalidraw', version: 2, source: 'https://github.com/scrawl-labs/draftr',
     elements,
     appState: { viewBackgroundColor: THEME.background, gridSize: null },
-    files: {},
+    files,
   };
 }
 
@@ -78,6 +100,7 @@ export function clipToOutline(from: Pt, end: Pt, shape: Outline, b: { x: number;
 export function toExcalidraw(scene: Scene): ExcalidrawDoc {
   resetSeed();
   const els: ExElement[] = [];
+  const store = new FileStore();
 
   // Groups first (painted underneath), outermost first.
   for (const gr of [...scene.groups].sort((a, b) => a.depth - b.depth)) {
@@ -98,7 +121,9 @@ export function toExcalidraw(scene: Scene): ExcalidrawDoc {
     const k = THEME.kinds[n.kind] ?? THEME.kinds.service;
     const id = shapeId(n.id);
     const tid = `${id}:text`;
-    bound[id] = [{ type: 'text', id: tid }];
+    const withIcon = !!n.icon && k.shape !== 'diamond';
+    const grp = withIcon ? [`g:${n.id}`] : [];
+    bound[id] = withIcon ? [] : [{ type: 'text', id: tid }];
     els.push(base(k.shape, id, n.x, n.y, n.w, n.h, {
       strokeColor: n.highlight ? THEME.accent : k.stroke,
       backgroundColor: k.bg,
@@ -106,12 +131,23 @@ export function toExcalidraw(scene: Scene): ExcalidrawDoc {
       strokeStyle: k.dashed ? 'dashed' : 'solid',
       roundness: k.shape === 'rectangle' ? { type: 3 } : { type: 2 },
       boundElements: bound[id],
-      customData: { role: 'node', nodeId: n.id, kind: n.kind },
+      groupIds: grp,
+      customData: { role: 'node', nodeId: n.id, kind: n.kind, ...(n.icon ? { icon: n.icon.name } : {}) },
     }));
     const m = measureText(n.label, scene.fontSize);
-    els.push(text(tid, n.label, n.x + (n.w - m.width) / 2, n.y + (n.h - m.height) / 2, scene.fontSize, {
-      textAlign: 'center', verticalAlign: 'middle', containerId: id,
-    }));
+    if (withIcon) {
+      // Icon + label as one centered row, grouped with the shape so they move together.
+      const rowW = ICON_SIZE + ICON_GAP + m.width;
+      const x0 = n.x + (n.w - rowW) / 2;
+      els.push(iconImage(`${id}:icon`, store, n.icon!, x0, n.y + (n.h - ICON_SIZE) / 2, ICON_SIZE, n.highlight ? THEME.accent : k.stroke, { groupIds: grp }));
+      els.push(text(tid, n.label, x0 + ICON_SIZE + ICON_GAP, n.y + (n.h - m.height) / 2, scene.fontSize, {
+        groupIds: grp, customData: { role: 'node-label', nodeId: n.id },
+      }));
+    } else {
+      els.push(text(tid, n.label, n.x + (n.w - m.width) / 2, n.y + (n.h - m.height) / 2, scene.fontSize, {
+        textAlign: 'center', verticalAlign: 'middle', containerId: id,
+      }));
+    }
   }
 
   const nodeById = Object.fromEntries(scene.nodes.map((n) => [n.id, n]));
@@ -143,5 +179,5 @@ export function toExcalidraw(scene: Scene): ExcalidrawDoc {
   }
 
   if (scene.title) els.push(text('title', scene.title, 40, 4, 20, { customData: { role: 'title' } }));
-  return doc(els);
+  return doc(els, store.files);
 }

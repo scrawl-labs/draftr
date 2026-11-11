@@ -1,29 +1,119 @@
 {
   "direction": "RIGHT",
   "groups": [
-    { "id": "inputs", "label": "You / your agent write" },
-    { "id": "draftr", "label": "draftr" },
-    { "id": "outputs", "label": "You get" }
+    {
+      "id": "inputs",
+      "label": "You / your agent write"
+    },
+    {
+      "id": "draftr",
+      "label": "draftr"
+    },
+    {
+      "id": "outputs",
+      "label": "You get"
+    }
   ],
   "nodes": [
-    { "id": "graph", "label": "semantic graph\n(no coordinates)", "kind": "note", "group": "inputs" },
-    { "id": "mermaid", "label": "Mermaid", "kind": "note", "group": "inputs" },
-    { "id": "messy", "label": "messy .excalidraw", "kind": "storage", "group": "inputs" },
-    { "id": "tidy", "label": "tidy", "kind": "service", "group": "draftr" },
-    { "id": "layout", "label": "ELK auto layout", "kind": "service", "group": "draftr" },
-    { "id": "lint", "label": "deterministic lint", "kind": "service", "group": "draftr", "highlight": true },
-    { "id": "ex", "label": "editable .excalidraw", "kind": "client", "group": "outputs" },
-    { "id": "img", "label": ".svg / .png preview", "kind": "client", "group": "outputs" },
-    { "id": "report", "label": "lint report\n(element ids + fixes)", "kind": "client", "group": "outputs" }
+    {
+      "id": "graph",
+      "label": "semantic graph\n(no coordinates)",
+      "kind": "note",
+      "group": "inputs",
+      "icon": "braces"
+    },
+    {
+      "id": "mermaid",
+      "label": "Mermaid",
+      "kind": "note",
+      "group": "inputs",
+      "icon": "file-text"
+    },
+    {
+      "id": "messy",
+      "label": "messy .excalidraw",
+      "kind": "storage",
+      "group": "inputs",
+      "icon": "file"
+    },
+    {
+      "id": "tidy",
+      "label": "tidy",
+      "kind": "service",
+      "group": "draftr",
+      "icon": "wand-2"
+    },
+    {
+      "id": "layout",
+      "label": "ELK auto layout",
+      "kind": "service",
+      "group": "draftr",
+      "icon": "workflow"
+    },
+    {
+      "id": "lint",
+      "label": "deterministic lint",
+      "kind": "service",
+      "group": "draftr",
+      "highlight": true,
+      "icon": "list-checks"
+    },
+    {
+      "id": "ex",
+      "label": "editable .excalidraw",
+      "kind": "client",
+      "group": "outputs",
+      "icon": "file"
+    },
+    {
+      "id": "img",
+      "label": ".svg / .png preview",
+      "kind": "client",
+      "group": "outputs",
+      "icon": "image"
+    },
+    {
+      "id": "report",
+      "label": "lint report\n(element ids + fixes)",
+      "kind": "client",
+      "group": "outputs",
+      "icon": "list-checks"
+    }
   ],
   "edges": [
-    { "from": "graph", "to": "layout" },
-    { "from": "mermaid", "to": "layout" },
-    { "from": "messy", "to": "tidy", "label": "recover graph" },
-    { "from": "tidy", "to": "layout" },
-    { "from": "layout", "to": "lint" },
-    { "from": "lint", "to": "ex" },
-    { "from": "lint", "to": "img" },
-    { "from": "lint", "to": "report", "highlight": true }
+    {
+      "from": "graph",
+      "to": "layout"
+    },
+    {
+      "from": "mermaid",
+      "to": "layout"
+    },
+    {
+      "from": "messy",
+      "to": "tidy",
+      "label": "recover graph"
+    },
+    {
+      "from": "tidy",
+      "to": "layout"
+    },
+    {
+      "from": "layout",
+      "to": "lint"
+    },
+    {
+      "from": "lint",
+      "to": "ex"
+    },
+    {
+      "from": "lint",
+      "to": "img"
+    },
+    {
+      "from": "lint",
+      "to": "report",
+      "highlight": true
+    }
   ]
 }

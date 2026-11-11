@@ -139,6 +139,41 @@ Render a `.excalidraw` file to PNG offline. No CDN, no browser tab.
 
 > "show me docs/architecture.excalidraw"
 
+#### 🏷️ `search_icons`
+
+Find icon names for the `icon` field. Mostly you won't need it — icons are picked from labels automatically.
+
+> "use the Kafka logo for the events node"
+
+## Icons
+
+Every box gets an icon, picked from its label. Write `PostgreSQL`, `orders DB (Postgres)` or just `pg` and you get the PostgreSQL elephant; write `Payment Service` and you get a card; a `queue` gets a queue.
+
+| Set | What | Examples |
+| --- | --- | --- |
+| **Brands** | 240 developer logos from [Simple Icons](https://simpleicons.org) | `postgresql` `mongodb` `redis` `apachekafka` `kubernetes` `docker` `stripe` `github` `grafana` `nextdotjs` |
+| **Generic** | 120+ line icons from [Lucide](https://lucide.dev) | `server` `database` `layers` `mail` `credit-card` `shopping-cart` `route` `key-round` `cog` `brain` |
+| **Yours** | every `.svg` in your icon folders | `acme-billing` → matches a box labelled "Acme Billing" |
+
+How a box gets its icon, first match wins:
+
+1. `"icon": "kafka"` on the node — any name, slug or alias. `"icon": false` for none.
+2. One of **your** icons whose file name matches the label.
+3. A **brand** named in the label (`Redis cache`, `k8s cluster`, `Next.js frontend`). Short, common words like `Go` or `Render` only count when they are the whole label.
+4. A **generic** keyword (`payment`, `email`, `gateway`, `worker`…). Skipped for queues and databases — `order.created` is a queue, not a shopping cart.
+5. The node kind's icon.
+
+Bring your own: drop SVGs in a folder and point draftr at it. Your company's internal services get their logos in every diagram, every time.
+
+```bash
+DRAFTR_ICONS=~/icons draftr build arch.json      # or: draftr build arch.json --icons ~/icons
+draftr icons postgres                             # search all three sets
+```
+
+For the MCP server, add `"env": { "DRAFTR_ICONS": "/absolute/path/to/icons" }` to its entry in `.mcp.json`.
+
+Icons are embedded in the `.excalidraw` file and grouped with their box, so they stay put when you drag things around in Excalidraw.
+
 ## CLI
 
 The same engine, for scripts, CI and pre-commit hooks (`npm i -g @scrawl-labs/draftr`, or prefix each command with `npx @scrawl-labs/draftr`):
@@ -149,7 +184,10 @@ draftr build  examples/login.mmd                       # Mermaid works too
 draftr lint   docs/architecture.excalidraw             # exit 1 on errors, --json for machines
 draftr tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
 draftr render docs/architecture.excalidraw --no-png    # offline SVG
+draftr icons  kafka                                    # search icons
 ```
+
+Flags: `-o <prefix>`, `--no-png`, `--json`, `--no-icons`, `--icons <dir>`.
 
 `lint` exits non-zero on errors, so you can keep every diagram in your repo honest in CI:
 
@@ -186,6 +224,7 @@ for f in docs/**/*.excalidraw; do draftr lint "$f" || exit 1; done
 | `direction` | `RIGHT` (default), `DOWN`, `LEFT`, `UP` |
 | `kind` | `service`, `database`, `queue`, `external`, `user`, `client`, `storage`, `decision`, `note` |
 | `highlight` | on nodes and edges — the one or two things the diagram is *about* |
+| `icon` | on nodes and participants: an icon name, or `false`. Omit it to let draftr pick |
 | `style` | edges: `solid`, `dashed` (async / optional / reply) |
 | `groups[].parent` | nest groups (VPC → cluster → namespace) |
 
@@ -278,7 +317,8 @@ Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/
 - [ ] PR bot: before/after diagram of the changed flow on every pull request
 - [ ] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
 - [ ] tldraw and draw.io output
-- [ ] Publish to npm
+- [x] Publish to npm
+- [ ] Icons from Mermaid's `@{ icon: … }` syntax
 
 ## Contributing
 
@@ -292,3 +332,5 @@ pnpm build && pnpm test
 ## License
 
 MIT — see [LICENSE](https://github.com/scrawl-labs/draftr/blob/main/LICENSE). Copyright (c) 2026 Yongtaek Lee.
+
+Bundled icons: brand icons from [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0-1.0) and generic icons from [Lucide](https://github.com/lucide-icons/lucide) (ISC). Brand names and logos are trademarks of their respective owners; their use here does not imply endorsement.

@@ -1,9 +1,10 @@
 import type { Kind } from './schema.js';
+import type { Icon } from './icons/index.js';
 
 export interface Pt { x: number; y: number }
 export interface Box { x: number; y: number; w: number; h: number }
 
-export interface SceneNode extends Box { id: string; label: string; kind: Kind; group?: string; highlight?: boolean }
+export interface SceneNode extends Box { id: string; label: string; kind: Kind; group?: string; highlight?: boolean; icon?: Icon }
 export interface SceneGroup extends Box { id: string; label: string; parent?: string; depth: number }
 export interface SceneEdge {
   id: string; from: string; to: string; label?: string; style: 'solid' | 'dashed'; highlight?: boolean;
@@ -42,5 +43,7 @@ export interface ExcalidrawDoc {
   source?: string;
   elements: ExElement[];
   appState?: { viewBackgroundColor?: string; [k: string]: unknown };
-  files?: Record<string, unknown>;
+  files?: Record<string, ExFile>;
 }
+
+export interface ExFile { id: string; mimeType: string; dataURL: string; created: number }
