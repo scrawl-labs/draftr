@@ -1,7 +1,7 @@
 # draftr
 
 <p align="center">
-  <img src=".github/assets/draftr.png" width="900"/>
+  <img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/draftr.png" width="900"/>
 </p>
 
 <p align="center"><strong>Diagrams for AI agents. The model says <em>what</em>. draftr decides <em>where</em>. A linter says what's wrong.</strong></p>
@@ -12,7 +12,7 @@ draftr is a CLI and an MCP server that turns a **semantic graph** (nodes, edges,
 
 It also works in the other direction: point it at an existing `.excalidraw` file — hand-drawn, or hand-*written* by a model — and it will tell you exactly what's broken, or recover the graph and re-lay it out cleanly.
 
-The image above was drawn by draftr from [`examples/draftr.json`](./examples/draftr.json).
+The image above was drawn by draftr from [`examples/draftr.json`](https://github.com/scrawl-labs/draftr/blob/main/examples/draftr.json).
 
 ## Why this exists
 
@@ -36,26 +36,10 @@ So draftr splits the work:
 
 ## Install
 
-Not on npm yet. From source:
+Requires Node 20+. Wire the MCP server into your client. For Claude Code:
 
 ```bash
-git clone https://github.com/scrawl-labs/draftr.git
-cd draftr
-pnpm install
-pnpm build
-```
-
-PNG output and previews need Playwright with Chromium. Everything else (layout, `.excalidraw`, `.svg`, lint, tidy) is pure Node and works without it:
-
-```bash
-pnpm add playwright        # optional peer dependency
-npx playwright install chromium
-```
-
-Wire it into your MCP client. For Claude Code:
-
-```bash
-claude mcp add draftr --scope user -- node /absolute/path/to/draftr/dist/mcp.js
+claude mcp add draftr --scope user -- npx -y -p @scrawl-labs/draftr -p playwright draftr-mcp
 ```
 
 Or in a project-local **`.mcp.json`** (share it with your team via git):
@@ -64,14 +48,38 @@ Or in a project-local **`.mcp.json`** (share it with your team via git):
 {
   "mcpServers": {
     "draftr": {
-      "command": "node",
-      "args": ["/absolute/path/to/draftr/dist/mcp.js"]
+      "command": "npx",
+      "args": ["-y", "-p", "@scrawl-labs/draftr", "-p", "playwright", "draftr-mcp"]
     }
   }
 }
 ```
 
+Playwright is only there for the PNG previews; download its browser once:
+
+```bash
+npx playwright install chromium
+```
+
+Don't want Playwright? Drop `-p playwright`. Layout, `.excalidraw`, `.svg`, lint and tidy are pure Node; the tools just say the preview is unavailable.
+
 Restart your agent. That's it. No env vars, no API keys, no network — draftr never leaves your machine.
+
+The CLI:
+
+```bash
+npx @scrawl-labs/draftr build diagram.json        # or install it: npm i -g @scrawl-labs/draftr playwright
+```
+
+From source:
+
+```bash
+git clone https://github.com/scrawl-labs/draftr.git
+cd draftr
+pnpm install && pnpm build
+node dist/mcp.js        # MCP server
+node dist/cli.js --help # CLI
+```
 
 ## Tools
 
@@ -87,7 +95,7 @@ Sequence diagrams from participants and ordered messages. Columns are spaced so 
 
 > "draw the login sequence: user, web app, auth API, Redis, users DB"
 
-<p align="center"><img src=".github/assets/sequence.png" width="720"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/sequence.png" width="720"/></p>
 
 #### 🧜 `build_from_mermaid`
 
@@ -95,7 +103,7 @@ Mermaid `flowchart` / `graph` and `sequenceDiagram` in, laid-out editable Excali
 
 > "turn the mermaid diagram in docs/ci.md into an excalidraw file"
 
-<p align="center"><img src=".github/assets/mermaid.png" width="900"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/mermaid.png" width="900"/></p>
 
 #### 🔍 `lint_diagram`
 
@@ -123,7 +131,7 @@ Recover the graph from a messy file — shapes, labels (even ones that spill out
 
 | Before (hand-written, score 56) | After `tidy` (score 100) |
 | --- | --- |
-| <img src=".github/assets/tidy-before.png"/> | <img src=".github/assets/tidy-after.png"/> |
+| <img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/tidy-before.png"/> | <img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/tidy-after.png"/> |
 
 #### 🖼️ `render_diagram`
 
@@ -133,20 +141,20 @@ Render a `.excalidraw` file to PNG offline. No CDN, no browser tab.
 
 ## CLI
 
-The same engine, for scripts, CI and pre-commit hooks:
+The same engine, for scripts, CI and pre-commit hooks (`npm i -g @scrawl-labs/draftr`, or prefix each command with `npx @scrawl-labs/draftr`):
 
 ```bash
-node dist/cli.js build  examples/checkout.json -o out/checkout   # graph → .excalidraw .svg .png + report
-node dist/cli.js build  examples/login.mmd                       # Mermaid works too
-node dist/cli.js lint   docs/architecture.excalidraw             # exit 1 on errors, --json for machines
-node dist/cli.js tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
-node dist/cli.js render docs/architecture.excalidraw --no-png    # offline SVG
+draftr build  examples/checkout.json -o out/checkout   # graph → .excalidraw .svg .png + report
+draftr build  examples/login.mmd                       # Mermaid works too
+draftr lint   docs/architecture.excalidraw             # exit 1 on errors, --json for machines
+draftr tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
+draftr render docs/architecture.excalidraw --no-png    # offline SVG
 ```
 
 `lint` exits non-zero on errors, so you can keep every diagram in your repo honest in CI:
 
 ```bash
-for f in docs/**/*.excalidraw; do node dist/cli.js lint "$f" || exit 1; done
+for f in docs/**/*.excalidraw; do draftr lint "$f" || exit 1; done
 ```
 
 ## Input formats
@@ -181,9 +189,9 @@ for f in docs/**/*.excalidraw; do node dist/cli.js lint "$f" || exit 1; done
 | `style` | edges: `solid`, `dashed` (async / optional / reply) |
 | `groups[].parent` | nest groups (VPC → cluster → namespace) |
 
-Full example: [`examples/checkout.json`](./examples/checkout.json)
+Full example: [`examples/checkout.json`](https://github.com/scrawl-labs/draftr/blob/main/examples/checkout.json)
 
-<p align="center"><img src=".github/assets/checkout.png" width="900"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/checkout.png" width="900"/></p>
 
 ### Sequence
 
@@ -261,7 +269,7 @@ Agent:  [build_sequence]     → same messages, refresh call marked highlight: t
 - `playwright` — optional, only for PNG
 - Vitest — including a property-style test that lays out 40 random graphs (nested groups, CJK labels, every node kind) and requires zero lint errors
 
-Colors live in one file: [`src/theme.ts`](./src/theme.ts). Swap them for your brand.
+Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/blob/main/src/theme.ts). Swap them for your brand.
 
 ## Roadmap
 
@@ -283,4 +291,4 @@ pnpm build && pnpm test
 
 ## License
 
-MIT — see [LICENSE](./LICENSE). Copyright (c) 2026 Yongtaek Lee.
+MIT — see [LICENSE](https://github.com/scrawl-labs/draftr/blob/main/LICENSE). Copyright (c) 2026 Yongtaek Lee.
