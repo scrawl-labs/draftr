@@ -1,13 +1,21 @@
 name: Release
 
 # Push a tag like v0.2.0 (matching package.json "version") to publish to npm.
-# Uses npm trusted publishing (OIDC): configure it once on npmjs.com under
-# @scrawl-labs/draftr → Settings → Trusted publisher → GitHub Actions,
-# repository scrawl-labs/draftr, workflow release.yml. No NPM_TOKEN secret needed.
+#
+# Auth, either of:
+# - NPM_TOKEN repository secret: an npm granular access token with read-write
+#   access to @scrawl-labs and "bypass 2FA". Needed for the very first publish.
+# - npm trusted publishing (OIDC), once the package exists: npmjs.com →
+#   @scrawl-labs/draftr → Settings → Trusted publisher → GitHub Actions,
+#   repository scrawl-labs/draftr, workflow release.yml. Then the secret can go.
+#
+# Can also be started by hand (Actions → Release → Run workflow) for the
+# version currently in package.json on the chosen branch.
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,8 +34,11 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - name: Tag matches package.json version
+        if: github.ref_type == 'tag'
         run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm test
       - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
