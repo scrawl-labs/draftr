@@ -12,9 +12,9 @@
     { "id": "gw", "label": "API Gateway", "kind": "service", "group": "edge" },
     { "id": "order", "label": "Order Service", "kind": "service", "group": "core", "highlight": true },
     { "id": "pay", "label": "Payment Service", "kind": "service", "group": "core" },
-    { "id": "db", "label": "orders DB (MongoDB)", "kind": "database", "group": "core" },
+    { "id": "db", "label": "MongoDB", "kind": "database", "group": "core" },
     { "id": "q", "label": "order.created", "kind": "queue", "group": "core" },
-    { "id": "mail", "label": "이메일 발송 워커", "kind": "service", "group": "async" },
+    { "id": "mail", "label": "Email worker", "kind": "service", "group": "async" },
     { "id": "inv", "label": "Inventory worker", "kind": "service", "group": "async" },
     { "id": "stripe", "label": "Stripe", "kind": "external" }
   ],

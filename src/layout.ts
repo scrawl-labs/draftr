@@ -26,9 +26,15 @@ export function nodeSize(node: Graph['nodes'][number]): { label: string; w: numb
 
 type ElkEdgeOut = ElkExtendedEdge & { container?: string };
 
-export async function layoutGraph(input: unknown): Promise<Scene> {
+export interface LayoutOptions {
+  /** Override how big each node is (e.g. for icon cards). Defaults to text-fit boxes. */
+  nodeSize?: (node: Graph['nodes'][number]) => { label: string; w: number; h: number };
+}
+
+export async function layoutGraph(input: unknown, opts: LayoutOptions = {}): Promise<Scene> {
   const g = parseGraph(input);
-  const sizes = Object.fromEntries(g.nodes.map((n) => [n.id, nodeSize(n)]));
+  const sizeOf = opts.nodeSize ?? nodeSize;
+  const sizes = Object.fromEntries(g.nodes.map((n) => [n.id, sizeOf(n)]));
   const hasLabels = g.edges.some((e) => e.label);
 
   const elkGroups: Record<string, ElkNode> = Object.fromEntries(g.groups.map((gr) => {

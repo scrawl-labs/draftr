@@ -172,7 +172,7 @@ for f in docs/**/*.excalidraw; do draftr lint "$f" || exit 1; done
   "nodes": [
     { "id": "order", "label": "Order Service", "kind": "service", "group": "core", "highlight": true },
     { "id": "db", "label": "orders DB", "kind": "database", "group": "core" },
-    { "id": "mail", "label": "이메일 발송 워커", "kind": "service", "group": "async" }
+    { "id": "mail", "label": "Email worker", "kind": "service", "group": "async" }
   ],
   "edges": [
     { "from": "order", "to": "db", "label": "insert" },
