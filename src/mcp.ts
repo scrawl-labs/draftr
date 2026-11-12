@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { build, buildMermaid, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
+import { build, buildMermaid, buildTrace, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -76,6 +76,27 @@ server.registerTool('build_from_mermaid', {
   description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
   inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
 }, guard(async ({ source, out: o, preview: p, icons, format }) => emit(await buildMermaid(source, opts(icons, format)), o, p)));
+
+server.registerTool('build_from_trace', {
+  title: 'Build a sequence diagram from a trace',
+  description: [
+    'Turn a distributed trace into a sequence diagram of what actually happened: OpenTelemetry (OTLP JSON or collector NDJSON, Tempo),',
+    'Jaeger or Zipkin JSON, or a speedwagon incident_timeline result. Calls between services become messages and replies with status and duration;',
+    'databases, queues and third parties come from span attributes; repeated identical calls collapse into "×N" (N+1 queries); errors are highlighted.',
+    'Give `path` to a file, or `trace` with the JSON itself.',
+  ].join(' '),
+  inputSchema: {
+    path: z.string().optional().describe('trace file (.json or .ndjson)'),
+    trace: z.string().optional().describe('the trace JSON itself, instead of path (e.g. the output of speedwagon incident_timeline)'),
+    trace_id: z.string().optional().describe('which trace to draw when the file holds several (default: the largest)'),
+    internal: z.boolean().default(false).describe('also draw work inside one service as self-messages'),
+    out, preview: wantPreview, icons: iconsArg, format: formatArg,
+  },
+}, guard(async ({ path, trace, trace_id, internal, out: o, preview: p, icons, format }) => {
+  if (!path && !trace) throw new Error('give path or trace');
+  const res = await buildTrace(trace ?? readFileSync(resolve(path!), 'utf8'), { ...opts(icons, format), traceId: trace_id, internal });
+  return emit(res, o, p, res.notes.join('\n') + '\n');
+}));
 
 server.registerTool('lint_diagram', {
   title: 'Lint an Excalidraw file',

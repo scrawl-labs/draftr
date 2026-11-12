@@ -1,0 +1,99 @@
+{
+ "data": [
+  {
+   "traceID": "abc",
+   "processes": {
+    "p1": {
+     "serviceName": "gateway"
+    },
+    "p2": {
+     "serviceName": "auth"
+    },
+    "p3": {
+     "serviceName": "users"
+    }
+   },
+   "spans": [
+    {
+     "traceID": "abc",
+     "spanID": "1",
+     "operationName": "POST /login",
+     "references": [],
+     "startTime": 1000,
+     "duration": 90000,
+     "processID": "p1",
+     "tags": [
+      {
+       "key": "span.kind",
+       "value": "server"
+      }
+     ]
+    },
+    {
+     "traceID": "abc",
+     "spanID": "2",
+     "operationName": "auth.Verify",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "spanID": "1"
+      }
+     ],
+     "startTime": 2000,
+     "duration": 60000,
+     "processID": "p2",
+     "tags": [
+      {
+       "key": "span.kind",
+       "value": "server"
+      }
+     ]
+    },
+    {
+     "traceID": "abc",
+     "spanID": "3",
+     "operationName": "GET user",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "spanID": "2"
+      }
+     ],
+     "startTime": 3000,
+     "duration": 4000,
+     "processID": "p2",
+     "tags": [
+      {
+       "key": "span.kind",
+       "value": "client"
+      },
+      {
+       "key": "db.system",
+       "value": "redis"
+      }
+     ]
+    },
+    {
+     "traceID": "abc",
+     "spanID": "4",
+     "operationName": "users.Get",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "spanID": "2"
+      }
+     ],
+     "startTime": 9000,
+     "duration": 30000,
+     "processID": "p3",
+     "tags": [
+      {
+       "key": "span.kind",
+       "value": "server"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

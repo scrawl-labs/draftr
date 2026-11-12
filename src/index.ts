@@ -9,6 +9,7 @@ import { toSvg } from './svg.js';
 import { lint, type LintReport } from './lint.js';
 import { parseMermaid } from './mermaid.js';
 import { extractGraph } from './tidy.js';
+import { traceToSequence, type TraceOptions } from './traces.js';
 import type { DiagramInput } from './schema.js';
 import { IconLibrary, type IconOptions } from './icons/index.js';
 import type { ExcalidrawDoc } from './types.js';
@@ -20,6 +21,7 @@ export type { GraphInput, SequenceInput, DiagramInput, Kind } from './schema.js'
 export type { ExcalidrawDoc, ExElement, Scene } from './types.js';
 export type { DiagramModel, DNode, DEdge, DGroup } from './model.js';
 export { THEME } from './theme.js';
+export { traceToSequence, timelineToSequence, readSpans, type TraceOptions, type TraceResult, type Span } from './traces.js';
 export { svgToPng } from './render.js';
 export { IconLibrary, type Icon, type IconOptions } from './icons/index.js';
 
@@ -80,6 +82,12 @@ export async function build(input: DiagramInput | Record<string, unknown>, opts:
 /** Mermaid source (flowchart or sequenceDiagram) -> build result. */
 export async function buildMermaid(source: string, opts: BuildOptions = {}): Promise<BuildResult> {
   return build(parseMermaid(source), opts);
+}
+
+/** A trace (OTLP, Jaeger, Zipkin) or a speedwagon incident timeline -> sequence diagram. */
+export async function buildTrace(input: unknown, opts: BuildOptions & TraceOptions = {}): Promise<BuildResult & { notes: string[] }> {
+  const { sequence, notes } = traceToSequence(input, opts);
+  return { ...(await build(sequence, opts)), notes };
 }
 
 /** Re-lay out an existing Excalidraw file; returns the clean result plus the lint report of the original. */

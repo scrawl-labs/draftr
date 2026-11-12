@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { build, buildMermaid, FORMAT_NAMES, FORMATS, formatReport, IconLibrary, lint, svgToPng, tidy, toSvg, type BuildOptions, type Format, type LintReport } from './index.js';
+import { build, buildMermaid, buildTrace, FORMAT_NAMES, FORMATS, formatReport, IconLibrary, lint, svgToPng, tidy, toSvg, type BuildOptions, type Format, type LintReport } from './index.js';
 
 const USAGE = `draftr — the model says what, draftr decides where.
 
@@ -12,6 +12,7 @@ usage: draftr <command> <file> [options]
   tidy   <file.excalidraw>                       recover the graph from a messy file and re-lay it out
   render <file.excalidraw>                       offline render -> .svg (+ .png)
   icons  [query]                                 search the icon library (no query: counts)
+  trace  <trace.json | timeline.json>            OTLP / Jaeger / Zipkin trace or speedwagon timeline -> sequence diagram
 
 options:
   -o, --out <prefix>   output path prefix (default: next to the input; tidy adds ".tidy")
@@ -20,12 +21,14 @@ options:
   --no-icons           draw no icons
   --icons <dir>        add a folder of your own .svg icons (repeatable; also DRAFTR_ICONS)
   --json               print the lint report as JSON
+  --trace-id <id>      trace: which trace to draw (default: the largest in the file)
+  --internal           trace: also draw work inside a service as self-messages
   -h, --help           show this help`;
 
 const args = process.argv.slice(2);
 const flag = (...k: string[]) => args.some((a) => k.includes(a));
 const opt = (...k: string[]) => { const i = args.findIndex((a) => k.includes(a)); return i >= 0 ? args[i + 1] : undefined; };
-const [cmd, file] = args.filter((a, i) => !a.startsWith('-') && !['-o', '--out', '--icons', '-f', '--format'].includes(args[i - 1]));
+const [cmd, file] = args.filter((a, i) => !a.startsWith('-') && !['-o', '--out', '--icons', '-f', '--format', '--trace-id'].includes(args[i - 1]));
 const iconDirs = args.flatMap((a, i) => (a === '--icons' && args[i + 1] ? [args[i + 1]] : []));
 const format = (opt('-f', '--format') ?? 'excalidraw') as Format;
 if (!FORMATS[format]) { console.error(`draftr: unknown format "${format}" (use one of: ${FORMAT_NAMES.join(', ')})`); process.exit(1); }
@@ -66,6 +69,14 @@ async function main() {
   }
   const src = readFileSync(file, 'utf8');
   switch (cmd) {
+    case 'trace': {
+      const res = await buildTrace(src, { ...buildOpts, traceId: opt('--trace-id'), internal: flag('--internal') });
+      for (const n of res.notes) console.error(n);
+      const files = await write(opt('-o', '--out') ?? stem.replace(/\.(otlp|jaeger|zipkin|timeline)$/, ''), res.file, res.svg);
+      show(res.report);
+      console.error(`wrote ${files.join(', ')}`);
+      return res.report.ok ? 0 : 1;
+    }
     case 'build': {
       const res = /\.(mmd|mermaid)$/i.test(file) ? await buildMermaid(src, buildOpts) : await build(JSON.parse(src), buildOpts);
       const files = await write(opt('-o', '--out') ?? stem, res.file, res.svg);

@@ -40,7 +40,7 @@ describe.skipIf(!existsSync(server))('mcp server (run `pnpm build` first)', () =
     const res = await s.call('tools/list');
     s.close();
     expect(res.result.tools.map((t: { name: string }) => t.name).sort())
-      .toEqual(['build_diagram', 'build_from_mermaid', 'build_sequence', 'lint_diagram', 'render_diagram', 'search_icons', 'tidy_diagram']);
+      .toEqual(['build_diagram', 'build_from_mermaid', 'build_from_trace', 'build_sequence', 'lint_diagram', 'render_diagram', 'search_icons', 'tidy_diagram']);
   });
 
   it('builds a diagram end to end', async () => {
