@@ -13,6 +13,7 @@ import type { DiagramInput } from './schema.js';
 import { IconLibrary, type IconOptions } from './icons/index.js';
 import type { ExcalidrawDoc } from './types.js';
 
+export { resolveIcon, type MermaidOptions } from './mermaid.js';
 export { layoutGraph, toExcalidraw, toDrawio, toTldraw, toSvg, modelToSvg, graphModel, sequenceModel, lint, parseMermaid, extractGraph };
 export { formatReport, type LintReport, type Issue, type IssueCode } from './lint.js';
 export { parseGraph, parseSequence, GraphSchema, SequenceSchema, KINDS } from './schema.js';
@@ -79,7 +80,8 @@ export async function build(input: DiagramInput | Record<string, unknown>, opts:
 
 /** Mermaid source (flowchart or sequenceDiagram) -> build result. */
 export async function buildMermaid(source: string, opts: BuildOptions = {}): Promise<BuildResult> {
-  return build(parseMermaid(source), opts);
+  const icons = iconLib(opts.icons);
+  return build(parseMermaid(source, { icons }), { ...opts, icons });
 }
 
 /** Re-lay out an existing Excalidraw file; returns the clean result plus the lint report of the original. */

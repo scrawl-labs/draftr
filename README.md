@@ -305,6 +305,17 @@ Full example: [`examples/checkout.json`](https://github.com/scrawl-labs/draftr/b
 
 `flowchart` / `graph` (all directions; `[]` `()` `([])` `[()]` `(())` `{}` `[//]` shapes; `-->` `---` `-.->` `==>`; `|label|` and `-- label -->`; chains; `A & B --> C`; nested `subgraph`) and `sequenceDiagram` (`participant` / `actor ... as ...`, `->>` `-->>` `->` `-->` `-x` `-)`, `autonumber`). Styling lines are ignored — draftr has its own theme.
 
+Mermaid v11 node metadata works too. `icon` packs map onto draftr's icons (`logos:postgresql` → postgresql, `fa:envelope` → mail; an icon draftr doesn't have falls back to the automatic pick), and `shape` names set the kind (`cyl` → database, `h-cyl` → queue, `diam` → decision, …):
+
+```mermaid
+flowchart LR
+  web@{ icon: "logos:react", label: "Web app" } --> api[API]
+  api --> db@{ shape: cyl, icon: "logos:postgresql", label: "Orders" }
+  api -.-> bus@{ icon: "logos:kafka", shape: h-cyl }
+```
+
+In `sequenceDiagram`, `participant DB@{ "type": "database" }` sets the kind (`database`, `queue`, `collections`, `actor`).
+
 ## Lint rules
 
 | Rule | Severity | Catches |
@@ -375,7 +386,7 @@ Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/
 - [x] draw.io output
 - [x] tldraw output
 - [x] Publish to npm
-- [ ] Icons from Mermaid's `@{ icon: … }` syntax
+- [x] Icons from Mermaid's `@{ icon: … }` syntax
 
 ## Contributing
 
