@@ -1,7 +1,7 @@
 {
   "name": "@scrawl-labs/draftr",
-  "version": "0.1.0",
-  "description": "Diagrams for AI agents: the model says what, draftr decides where. Auto layout to Excalidraw/SVG/PNG plus a deterministic diagram linter, as a CLI and an MCP server.",
+  "version": "0.2.0",
+  "description": "AI drafts the diagram, you keep thinking: auto-laid-out diagrams you edit in Excalidraw, draw.io or tldraw, plus a deterministic diagram linter. CLI and MCP server.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -43,7 +43,10 @@
     "architecture",
     "sequence-diagram",
     "claude",
-    "icons"
+    "icons",
+    "drawio",
+    "tldraw",
+    "draw.io"
   ],
   "license": "MIT",
   "repository": {

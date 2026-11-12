@@ -4,17 +4,27 @@
   <img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/draftr.png" width="900"/>
 </p>
 
-<p align="center"><strong>Diagrams for AI agents. The model says <em>what</em>. draftr decides <em>where</em>. A linter says what's wrong.</strong></p>
+<p align="center"><strong>AI drafts the diagram. You keep thinking.</strong></p>
+
+## Why I built this
+
+I draw a lot of diagrams while I build things. These days the first draft usually comes from an AI agent, and there are some genuinely great diagram skills out there. But almost all of them hand you a **PNG**. The moment one box is wrong, or I want to try a different shape for the system, I'm back to asking the AI again. And again.
+
+That's backwards for design work. I don't want an architecture generated in one shot. I want to *think my way into it*. AI is great at the draft: getting the obvious boxes and arrows down in seconds. After that, the valuable part is mine: dragging things around, noticing what's missing, arguing with myself about where a boundary should go. That's where the critical thinking happens, and it needs a canvas, not a picture.
+
+So draftr does the draft and then gets out of your way. The agent describes the system, draftr lays it out cleanly, and you get a file you open in **Excalidraw, draw.io or tldraw** and keep shaping by hand.
+
+— Yongtaek
 
 > **Side project notice** — Maintained as a side project. Best-effort response time on issues and PRs. For production use, please pin specific versions.
 
-draftr is a CLI and an MCP server that turns a **semantic graph** (nodes, edges, groups — no coordinates) into a clean, **editable Excalidraw diagram**, an SVG and a PNG. Then it runs a **deterministic diagram linter** over the result and hands the agent a report with element ids and concrete fixes.
+draftr is a CLI and an MCP server that turns a **semantic graph** (nodes, edges, groups — no coordinates) into a clean diagram you can **edit in Excalidraw, draw.io or tldraw**, plus an SVG and a PNG for your docs. Then it runs a **deterministic diagram linter** over the result and hands the agent a report with element ids and concrete fixes.
 
 It also works in the other direction: point it at an existing `.excalidraw` file — hand-drawn, or hand-*written* by a model — and it will tell you exactly what's broken, or recover the graph and re-lay it out cleanly.
 
 The image above was drawn by draftr from [`examples/draftr.json`](https://github.com/scrawl-labs/draftr/blob/main/examples/draftr.json).
 
-## Why this exists
+## Why not just let the model draw it?
 
 Ask a model for an architecture diagram and today it does one of two things.
 
