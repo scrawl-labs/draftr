@@ -125,6 +125,9 @@ section + section { border-top: 1px solid var(--line); }
 .step p { color: var(--muted); font-size: 15.5px; }
 .step pre { margin: 6px 0 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-size: 12.5px; line-height: 1.65; overflow-x: auto; }
 .k { color: var(--accent-ink); } .s { color: var(--ok); } .c { color: var(--faint); }
+/* shell tokens: command, subcommand, flag, package, path */
+.t-cmd { color: var(--accent-ink); font-weight: 500; } .t-sub { color: var(--ink); } .t-flag { color: var(--faint); }
+.t-pkg { color: var(--ok); } .t-path { color: var(--warn); } .t-p { color: var(--faint); }
 .figure { margin-top: 44px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; overflow-x: auto; }
 .figure img { min-width: 760px; width: 100%; }
 .figcap { margin-top: 12px; font-size: 13.5px; color: var(--faint); }
@@ -221,7 +224,7 @@ footer .right { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
         <h1>AI drafts the diagram. <span>You keep thinking.</span></h1>
         <p class="lede">draftr turns what your agent knows about a system into a laid-out architecture diagram. You open it in Excalidraw, draw.io or tldraw and keep shaping it by hand.</p>
         <div class="install">
-          <code id="cmd-hero"><b>$ </b>claude mcp add draftr -- npx -y -p @scrawl-labs/draftr -p playwright draftr-mcp</code>
+          <code id="cmd-hero"><b>$ </b><span class="t-cmd">claude</span> <span class="t-sub">mcp add</span> draftr <span class="t-flag">--</span> <span class="t-cmd">npx</span> <span class="t-flag">-y -p</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-flag">-p</span> <span class="t-pkg">playwright</span> <span class="t-sub">draftr-mcp</span></code>
           <button class="copy" type="button" id="copy-hero" data-copy="claude mcp add draftr -- npx -y -p @scrawl-labs/draftr -p playwright draftr-mcp">Copy</button>
         </div>
         <div class="cta">
@@ -352,13 +355,13 @@ footer .right { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
         <p>Node 20 or later. No API keys, no network: draftr runs on your machine.</p>
       </div>
       <div class="cmds">
-        <div class="cmd"><div class="what">Claude Code<small>MCP server</small></div><pre>claude mcp add draftr -- npx -y -p @scrawl-labs/draftr -p playwright draftr-mcp</pre></div>
-        <div class="cmd"><div class="what">Any MCP client<small>.mcp.json</small></div><pre>{ "mcpServers": { "draftr": {
-  "command": "npx",
-  "args": ["-y", "-p", "@scrawl-labs/draftr", "-p", "playwright", "draftr-mcp"]
-} } }</pre></div>
-        <div class="cmd"><div class="what">CLI<small>scripts and CI</small></div><pre>npx @scrawl-labs/draftr build arch.json --format drawio
-npx @scrawl-labs/draftr lint docs/architecture.excalidraw</pre></div>
+        <div class="cmd"><div class="what">Claude Code<small>MCP server</small></div><pre><span class="t-cmd">claude</span> <span class="t-sub">mcp add</span> draftr <span class="t-flag">--</span> <span class="t-cmd">npx</span> <span class="t-flag">-y -p</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-flag">-p</span> <span class="t-pkg">playwright</span> <span class="t-sub">draftr-mcp</span></pre></div>
+        <div class="cmd"><div class="what">Any MCP client<small>.mcp.json</small></div><pre><span class="t-p">{</span> <span class="k">"mcpServers"</span><span class="t-p">: {</span> <span class="k">"draftr"</span><span class="t-p">: {</span>
+  <span class="k">"command"</span><span class="t-p">:</span> <span class="s">"npx"</span><span class="t-p">,</span>
+  <span class="k">"args"</span><span class="t-p">: [</span><span class="s">"-y"</span><span class="t-p">,</span> <span class="s">"-p"</span><span class="t-p">,</span> <span class="s">"@scrawl-labs/draftr"</span><span class="t-p">,</span> <span class="s">"-p"</span><span class="t-p">,</span> <span class="s">"playwright"</span><span class="t-p">,</span> <span class="s">"draftr-mcp"</span><span class="t-p">]</span>
+<span class="t-p">} } }</span></pre></div>
+        <div class="cmd"><div class="what">CLI<small>scripts and CI</small></div><pre><span class="t-cmd">npx</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-sub">build</span> <span class="t-path">arch.json</span> <span class="t-flag">--format</span> drawio
+<span class="t-cmd">npx</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-sub">lint</span> <span class="t-path">docs/architecture.excalidraw</span></pre></div>
       </div>
     </div>
   </section>
