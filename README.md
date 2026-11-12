@@ -30,7 +30,7 @@ So draftr splits the work:
 | --- | --- | --- |
 | **Describe** | the model | nodes, edges, groups, what to `highlight`. Or Mermaid. Or a sequence of messages. |
 | **Lay out** | draftr | ELK layered layout, orthogonal edge routing, real nested groups, CJK-aware text sizing |
-| **Emit** | draftr | `.excalidraw` with arrows **bound** to shapes (drag a box, its arrows follow), offline `.svg`, `.png` |
+| **Emit** | draftr | an editable file with arrows **bound** to shapes (drag a box, its arrows follow), plus a docs-ready `.svg` and `.png` |
 | **Check** | draftr | 12 deterministic lint rules, each finding names element ids and a fix |
 | **Look** | the model | one PNG preview, to judge whether the diagram makes its point — not to hunt for overlaps |
 
@@ -145,6 +145,33 @@ Find icon names for the `icon` field. Mostly you won't need it — icons are pic
 
 > "use the Kafka logo for the events node"
 
+## Look
+
+One theme, designed to survive the trip into every editor: a tinted box with a border in the same hue, the label with a small caption under it (`Database`, `Queue`…), an icon, and **one** solid box for the thing the diagram is about. Nothing an editor can't draw — no shadows, gradients or glows — so the file you edit looks like the picture in the README.
+
+| | |
+| --- | --- |
+| **Color by kind** | services blue, data stores orange, queues violet, actors and clients green, externals grey and dashed, decisions yellow diamonds |
+| **Highlight** | `highlight: true` fills the box (or colors the edge) in its kind's solid color with white text |
+| **Type** | [Pretendard](https://github.com/orioncactus/pretendard) in SVG/PNG — Latin and Korean in one family. Excalidraw uses its built-in Nunito |
+| **Captions** | default to the kind; set `"caption": "Postgres 16"` or `"caption": false` per node |
+
+Every color lives in [`src/theme.ts`](https://github.com/scrawl-labs/draftr/blob/main/src/theme.ts).
+
+### Fonts and file size
+
+The SVG embeds only the pieces of Pretendard (Medium) that the diagram's text actually uses, so it renders the same on GitHub, in a browser or in a slide deck without fetching anything. A typical English diagram is ~40 KB, one with Korean labels ~130 KB; PNGs carry no font at all. The npm package ships the font subsets (~1.4 MB) under the SIL Open Font License, which allows bundling and embedding.
+
+## Output formats
+
+Pick the editor; the diagram is the same.
+
+| `--format` / `format` | File | Open it in |
+| --- | --- | --- |
+| `excalidraw` (default) | `.excalidraw` | excalidraw.com, Excalidraw+, VS Code, Obsidian |
+
+Whatever the format, draftr also writes the `.svg` (and `.png` with Playwright). The lint report always checks the Excalidraw rendering.
+
 ## Icons
 
 Every box gets an icon, picked from its label. Write `PostgreSQL`, `orders DB (Postgres)` or just `pg` and you get the PostgreSQL elephant; write `Payment Service` and you get a card; a `queue` gets a queue.
@@ -180,6 +207,7 @@ The same engine, for scripts, CI and pre-commit hooks (`npm i -g @scrawl-labs/dr
 
 ```bash
 draftr build  examples/checkout.json -o out/checkout   # graph → .excalidraw .svg .png + report
+draftr build  examples/checkout.json --format excalidraw # pick the editable format
 draftr build  examples/login.mmd                       # Mermaid works too
 draftr lint   docs/architecture.excalidraw             # exit 1 on errors, --json for machines
 draftr tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
@@ -187,7 +215,7 @@ draftr render docs/architecture.excalidraw --no-png    # offline SVG
 draftr icons  kafka                                    # search icons
 ```
 
-Flags: `-o <prefix>`, `--no-png`, `--json`, `--no-icons`, `--icons <dir>`.
+Flags: `-o <prefix>`, `-f`/`--format <name>`, `--no-png`, `--json`, `--no-icons`, `--icons <dir>`.
 
 `lint` exits non-zero on errors, so you can keep every diagram in your repo honest in CI:
 
@@ -225,6 +253,7 @@ for f in docs/**/*.excalidraw; do draftr lint "$f" || exit 1; done
 | `kind` | `service`, `database`, `queue`, `external`, `user`, `client`, `storage`, `decision`, `note` |
 | `highlight` | on nodes and edges — the one or two things the diagram is *about* |
 | `icon` | on nodes and participants: an icon name, or `false`. Omit it to let draftr pick |
+| `caption` | on nodes and participants: the small second line. Defaults to the kind; `false` for none |
 | `style` | edges: `solid`, `dashed` (async / optional / reply) |
 | `groups[].parent` | nest groups (VPC → cluster → namespace) |
 
@@ -308,6 +337,8 @@ Agent:  [build_sequence]     → same messages, refresh call marked highlight: t
 - `playwright` — optional, only for PNG
 - Vitest — including a property-style test that lays out 40 random graphs (nested groups, CJK labels, every node kind) and requires zero lint errors
 
+- Pretendard (SVG/PNG) and glyph metrics for Pretendard and Nunito, measured in Chromium (`scripts/build-fonts.mjs`), so boxes fit their text in every renderer
+
 Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/blob/main/src/theme.ts). Swap them for your brand.
 
 ## Roadmap
@@ -316,7 +347,8 @@ Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/
 - [ ] Code → graph extractors (module dependencies, HTTP routes, DB schema)
 - [ ] PR bot: before/after diagram of the changed flow on every pull request
 - [ ] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
-- [ ] tldraw and draw.io output
+- [ ] draw.io output
+- [ ] tldraw output
 - [x] Publish to npm
 - [ ] Icons from Mermaid's `@{ icon: … }` syntax
 
@@ -332,5 +364,7 @@ pnpm build && pnpm test
 ## License
 
 MIT — see [LICENSE](https://github.com/scrawl-labs/draftr/blob/main/LICENSE). Copyright (c) 2026 Yongtaek Lee.
+
+Bundled font: [Pretendard](https://github.com/orioncactus/pretendard) by Kil Hyung-jin, SIL Open Font License 1.1 (`fonts/pretendard/LICENSE.txt`).
 
 Bundled icons: brand icons from [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0-1.0) and generic icons from [Lucide](https://github.com/lucide-icons/lucide) (ISC). Brand names and logos are trademarks of their respective owners; their use here does not imply endorsement.

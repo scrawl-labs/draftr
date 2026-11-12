@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { build, buildMermaid, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type LintReport } from './index.js';
+import { build, buildMermaid, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -35,9 +35,12 @@ function writeOut(path: string, data: string): string {
   return p;
 }
 
+const KNOWN_EXT = new RegExp(`(${[...Object.values(FORMATS).map((f) => f.ext), '.svg', '.png'].map((e) => e.replace('.', '\\.')).join('|')})$`);
+
 async function emit(res: BuildResult, out: string, want: boolean, extra = ''): Promise<{ content: Content[] }> {
-  const file = writeOut(out.endsWith('.excalidraw') ? out : `${out}.excalidraw`, JSON.stringify(res.excalidraw, null, 2));
-  const svgFile = writeOut(file.replace(/\.excalidraw$/, '.svg'), res.svg);
+  const stem = out.replace(KNOWN_EXT, '');
+  const file = writeOut(`${stem}${res.file.ext}`, res.file.content);
+  const svgFile = writeOut(`${stem}.svg`, res.svg);
   return { content: [{ type: 'text', text: `wrote ${file}\nwrote ${svgFile}\n${extra}${reportText(res.report)}` }, ...(await preview(res.svg, want))] };
 }
 
@@ -45,33 +48,34 @@ const guard = <A>(fn: (a: A) => Promise<{ content: Content[] }>) => async (a: A)
   try { return await fn(a); } catch (e) { return { isError: true, content: [{ type: 'text' as const, text: (e as Error).message }] }; }
 };
 
-const out = z.string().describe('output path for the .excalidraw file, e.g. docs/diagrams/checkout.excalidraw (an .svg is written next to it)');
+const out = z.string().describe('output path, e.g. docs/diagrams/checkout (the editable file gets the format\'s extension; an .svg is written next to it)');
+const formatArg = z.enum(FORMAT_NAMES as [Format, ...Format[]]).default('excalidraw').describe(`editable output format: ${Object.entries(FORMATS).map(([k, v]) => `${k} = ${v.label}`).join('; ')}`);
 const wantPreview = z.boolean().default(true).describe('return a PNG preview');
 const iconsArg = z.boolean().default(true).describe('draw icons (picked automatically from labels unless a node sets `icon`)');
-const iconOpts = (on: boolean): BuildOptions => ({ icons: on ? {} : false });
+const opts = (icons: boolean, format: Format): BuildOptions => ({ icons: icons ? {} : false, format });
 
 server.registerTool('build_diagram', {
   title: 'Build an architecture / flow diagram',
   description: [
     'Create an architecture or flow diagram from a semantic graph. Give nodes, edges and groups only — never coordinates:',
-    'layout (ELK, orthogonal routing, nested groups) is computed for you. Writes .excalidraw + .svg and returns a lint report and a PNG preview.',
+    'layout (ELK, orthogonal routing, nested groups) is computed for you. Writes an editable file (Excalidraw by default, see format) plus a docs-ready .svg, and returns a lint report and a PNG preview.',
     'Tips: mark the 1–2 nodes/edges that carry the point of the diagram with highlight:true; use groups for trust/deployment boundaries;',
     'use dashed edges for async; kinds: service, database, queue, external, user, client, storage, decision, note.',
   ].join(' '),
-  inputSchema: { graph: GraphSchema, out, preview: wantPreview, icons: iconsArg },
-}, guard(async ({ graph, out: o, preview: p, icons }) => emit(await build(graph, iconOpts(icons)), o, p)));
+  inputSchema: { graph: GraphSchema, out, preview: wantPreview, icons: iconsArg, format: formatArg },
+}, guard(async ({ graph, out: o, preview: p, icons, format }) => emit(await build(graph, opts(icons, format)), o, p)));
 
 server.registerTool('build_sequence', {
   title: 'Build a sequence diagram',
-  description: 'Create a sequence diagram from participants and ordered messages (dashed = reply/async; a message to itself draws a loop). Column spacing is computed so every label fits. Writes .excalidraw + .svg and returns a lint report and a PNG preview.',
-  inputSchema: { sequence: SequenceSchema, out, preview: wantPreview, icons: iconsArg },
-}, guard(async ({ sequence, out: o, preview: p, icons }) => emit(await build(sequence, iconOpts(icons)), o, p)));
+  description: 'Create a sequence diagram from participants and ordered messages (dashed = reply/async; a message to itself draws a loop). Column spacing is computed so every label fits. Writes an editable file (Excalidraw by default, see format) plus a docs-ready .svg, and returns a lint report and a PNG preview.',
+  inputSchema: { sequence: SequenceSchema, out, preview: wantPreview, icons: iconsArg, format: formatArg },
+}, guard(async ({ sequence, out: o, preview: p, icons, format }) => emit(await build(sequence, opts(icons, format)), o, p)));
 
 server.registerTool('build_from_mermaid', {
   title: 'Build a diagram from Mermaid',
-  description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable Excalidraw diagram with lint report and preview. Useful for upgrading existing Mermaid docs.',
-  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg },
-}, guard(async ({ source, out: o, preview: p, icons }) => emit(await buildMermaid(source, iconOpts(icons)), o, p)));
+  description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
+  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
+}, guard(async ({ source, out: o, preview: p, icons, format }) => emit(await buildMermaid(source, opts(icons, format)), o, p)));
 
 server.registerTool('lint_diagram', {
   title: 'Lint an Excalidraw file',
@@ -85,10 +89,10 @@ server.registerTool('lint_diagram', {
 server.registerTool('tidy_diagram', {
   title: 'Tidy a messy Excalidraw file',
   description: 'Recover the graph (shapes, labels, arrows, groups) from an existing .excalidraw file and re-lay it out cleanly. Prefer this over hand-editing coordinates to fix lint errors.',
-  inputSchema: { path: z.string(), out: out.optional().describe('defaults to <name>.tidy.excalidraw'), preview: wantPreview, icons: iconsArg },
-}, guard(async ({ path, out: o, preview: p, icons }) => {
-  const res = await tidy(JSON.parse(readFileSync(resolve(path), 'utf8')), iconOpts(icons));
-  return emit(res, o ?? resolve(path).replace(/\.excalidraw$/, '') + '.tidy.excalidraw', p, `before: score ${res.before.score}/100 — ${res.before.summary}\nafter:  `);
+  inputSchema: { path: z.string(), out: out.optional().describe('defaults to <name>.tidy'), preview: wantPreview, icons: iconsArg, format: formatArg },
+}, guard(async ({ path, out: o, preview: p, icons, format }) => {
+  const res = await tidy(JSON.parse(readFileSync(resolve(path), 'utf8')), opts(icons, format));
+  return emit(res, o ?? resolve(path).replace(/\.excalidraw$/, '') + '.tidy', p, `before: score ${res.before.score}/100 — ${res.before.summary}\nafter:  `);
 }));
 
 server.registerTool('render_diagram', {

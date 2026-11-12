@@ -1,6 +1,8 @@
 import { layoutGraph } from './layout.js';
 import { toExcalidraw } from './excalidraw.js';
-import { sequenceToExcalidraw } from './sequence.js';
+import { graphModel, type DiagramModel } from './model.js';
+import { modelToSvg } from './model-svg.js';
+import { sequenceModel } from './sequence.js';
 import { toSvg } from './svg.js';
 import { lint, type LintReport } from './lint.js';
 import { parseMermaid } from './mermaid.js';
@@ -9,34 +11,67 @@ import type { DiagramInput } from './schema.js';
 import { IconLibrary, type IconOptions } from './icons/index.js';
 import type { ExcalidrawDoc } from './types.js';
 
-export { layoutGraph, toExcalidraw, sequenceToExcalidraw, toSvg, lint, parseMermaid, extractGraph };
+export { layoutGraph, toExcalidraw, toSvg, modelToSvg, graphModel, sequenceModel, lint, parseMermaid, extractGraph };
 export { formatReport, type LintReport, type Issue, type IssueCode } from './lint.js';
 export { parseGraph, parseSequence, GraphSchema, SequenceSchema, KINDS } from './schema.js';
 export type { GraphInput, SequenceInput, DiagramInput, Kind } from './schema.js';
 export type { ExcalidrawDoc, ExElement, Scene } from './types.js';
+export type { DiagramModel, DNode, DEdge, DGroup } from './model.js';
 export { THEME } from './theme.js';
 export { svgToPng } from './render.js';
 export { IconLibrary, type Icon, type IconOptions } from './icons/index.js';
 
+/** Editable formats draftr can write. SVG and PNG are always available alongside. */
+export const FORMATS = {
+  excalidraw: { ext: '.excalidraw', label: 'Excalidraw (excalidraw.com, VS Code, Obsidian)' },
+} as const;
+export type Format = keyof typeof FORMATS;
+export const FORMAT_NAMES = Object.keys(FORMATS) as Format[];
+
 export interface BuildOptions {
   /** false: no icons. Otherwise icon folders to add on top of the built-in set (and DRAFTR_ICONS). */
   icons?: false | IconOptions | IconLibrary;
+  /** Editable output format. Default: excalidraw. */
+  format?: Format;
+}
+
+export interface BuildResult {
+  model: DiagramModel;
+  /** Always produced: it is what the linter checks. */
+  excalidraw: ExcalidrawDoc;
+  /** Docs-quality SVG (Pretendard embedded). */
+  svg: string;
+  report: LintReport;
+  /** The editable file in the requested format. */
+  file: { format: Format; ext: string; content: string };
 }
 
 const iconLib = (o?: BuildOptions['icons']) => (o === false ? false : o instanceof IconLibrary ? o : new IconLibrary(o ?? {}));
 
-export interface BuildResult { excalidraw: ExcalidrawDoc; svg: string; report: LintReport }
-
-const finish = (excalidraw: ExcalidrawDoc): BuildResult => ({ excalidraw, svg: toSvg(excalidraw), report: lint(excalidraw) });
-
-/** Graph or sequence input -> { excalidraw, svg, report }. */
-export async function build(input: DiagramInput | Record<string, unknown>, opts: BuildOptions = {}): Promise<BuildResult> {
-  const icons = iconLib(opts.icons);
-  if ((input as { type?: string }).type === 'sequence') return finish(sequenceToExcalidraw(input, { icons }));
-  return finish(toExcalidraw(await layoutGraph(input, { icons })));
+export function exportModel(model: DiagramModel, format: Format, excalidraw = toExcalidraw(model)): string {
+  switch (format) {
+    case 'excalidraw': return JSON.stringify(excalidraw, null, 2);
+    default: throw new Error(`unknown format "${format}" (use one of: ${FORMAT_NAMES.join(', ')})`);
+  }
 }
 
-/** Mermaid source (flowchart or sequenceDiagram) -> { excalidraw, svg, report }. */
+export function finish(model: DiagramModel, format: Format = 'excalidraw'): BuildResult {
+  if (!FORMATS[format]) throw new Error(`unknown format "${format}" (use one of: ${FORMAT_NAMES.join(', ')})`);
+  const excalidraw = toExcalidraw(model);
+  return {
+    model, excalidraw, svg: modelToSvg(model), report: lint(excalidraw),
+    file: { format, ext: FORMATS[format].ext, content: exportModel(model, format, excalidraw) },
+  };
+}
+
+/** Graph or sequence input -> model -> { excalidraw, svg, report, file }. */
+export async function build(input: DiagramInput | Record<string, unknown>, opts: BuildOptions = {}): Promise<BuildResult> {
+  const icons = iconLib(opts.icons);
+  const model = (input as { type?: string }).type === 'sequence' ? sequenceModel(input, { icons }) : await graphModel(input, { icons });
+  return finish(model, opts.format);
+}
+
+/** Mermaid source (flowchart or sequenceDiagram) -> build result. */
 export async function buildMermaid(source: string, opts: BuildOptions = {}): Promise<BuildResult> {
   return build(parseMermaid(source), opts);
 }

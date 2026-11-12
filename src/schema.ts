@@ -10,6 +10,7 @@ export const NodeSchema = z.object({
   kind: z.enum(KINDS).default('service'),
   group: z.string().optional().describe('id of the group this node belongs to'),
   highlight: z.boolean().optional().describe('draw attention to this node (the point of the diagram)'),
+  caption: z.union([z.string(), z.literal(false)]).optional().describe('small second line under the label; default: the kind ("Database"); false for none'),
   icon: z.union([z.string(), z.literal(false)]).optional().describe('icon name (see search_icons), or false for none; omitted = picked automatically from the label'),
 });
 
@@ -40,6 +41,7 @@ export const ParticipantSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   kind: z.enum(KINDS).default('service'),
+  caption: z.union([z.string(), z.literal(false)]).optional().describe('small second line under the label; default: the kind ("Database"); false for none'),
   icon: z.union([z.string(), z.literal(false)]).optional().describe('icon name (see search_icons), or false for none; omitted = picked automatically from the label'),
 });
 

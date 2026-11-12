@@ -1,6 +1,7 @@
 // Deterministic layout lint for ANY Excalidraw document. Replaces "squint at
 // the PNG" with concrete, element-addressed findings a model can act on.
 import { measureText } from './measure.js';
+import { excalidrawFace } from './fonts/index.js';
 import type { Box, ExElement, ExcalidrawDoc, Pt } from './types.js';
 
 export type Severity = 'error' | 'warning';
@@ -14,6 +15,8 @@ export interface LintReport { ok: boolean; score: number; summary: string; issue
 export interface LintOptions { minGap?: number }
 
 const SHAPES = new Set(['rectangle', 'ellipse', 'diamond']);
+/** Shapes that decorate other elements (label backings, icon chips) rather than stand for anything. */
+export const DECOR = new Set(['label-bg', 'icon-chip']);
 const TEXT_PAD_X = 10;
 const TEXT_PAD_Y = 4;
 
@@ -67,7 +70,7 @@ const segsOf = (a: ExElement): Array<[Pt, Pt]> => {
 
 /** Shapes that act as frames: flagged as groups, or fully containing another shape. */
 export function classifyShapes(els: ExElement[]) {
-  const shapes = els.filter((e) => SHAPES.has(e.type) && e.customData?.role !== 'label-bg');
+  const shapes = els.filter((e) => SHAPES.has(e.type) && !DECOR.has(String(e.customData?.role)));
   const isGroup = new Set<string>();
   for (const s of shapes) {
     if (s.customData?.role === 'group') { isGroup.add(s.id); continue; }
@@ -115,7 +118,7 @@ export function lint(d: ExcalidrawDoc, { minGap = 16 }: LintOptions = {}): LintR
   // 3) text that does not fit its container / free text colliding
   const freeText: Array<Box & { el: ExElement; owner?: string }> = [];
   for (const t of els.filter((e) => e.type === 'text')) {
-    const m = measureText(t.text, t.fontSize ?? 16);
+    const m = measureText(t.text, t.fontSize ?? 16, excalidrawFace(t.fontFamily));
     const c = t.containerId ? byId[t.containerId] : undefined;
     if (c && SHAPES.has(c.type)) {
       let availW = c.width - 2 * TEXT_PAD_X, availH = c.height - 2 * TEXT_PAD_Y;
