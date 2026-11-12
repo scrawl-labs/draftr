@@ -1,6 +1,6 @@
 {
   "name": "@scrawl-labs/draftr",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "AI drafts the diagram, you keep thinking: auto-laid-out diagrams you edit in Excalidraw, draw.io or tldraw, plus a deterministic diagram linter. CLI and MCP server.",
   "type": "module",
   "main": "./dist/index.js",

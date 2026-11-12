@@ -14,8 +14,6 @@ That's backwards for design work. I don't want an architecture generated in one 
 
 So draftr does the draft and then gets out of your way. The agent describes the system, draftr lays it out cleanly, and you get a file you open in **Excalidraw, draw.io or tldraw** and keep shaping by hand.
 
-— Yongtaek
-
 > **Side project notice** — Maintained as a side project. Best-effort response time on issues and PRs. For production use, please pin specific versions.
 
 draftr is a CLI and an MCP server that turns a **semantic graph** (nodes, edges, groups — no coordinates) into a clean diagram you can **edit in Excalidraw, draw.io or tldraw**, plus an SVG and a PNG for your docs. Then it runs a **deterministic diagram linter** over the result and hands the agent a report with element ids and concrete fixes.
@@ -384,7 +382,7 @@ pnpm build && pnpm test
 
 ## License
 
-MIT — see [LICENSE](https://github.com/scrawl-labs/draftr/blob/main/LICENSE). Copyright (c) 2026 Yongtaek Lee.
+MIT — see [LICENSE](https://github.com/scrawl-labs/draftr/blob/main/LICENSE). Copyright (c) 2026 scrawl-labs.
 
 Bundled font: [Pretendard](https://github.com/orioncactus/pretendard) by Kil Hyung-jin, SIL Open Font License 1.1 (`fonts/pretendard/LICENSE.txt`).
 
