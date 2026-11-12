@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { build, buildMermaid, FORMAT_NAMES, FORMATS, formatReport, IconLibrary, lint, svgToPng, tidy, toSvg, type BuildOptions, type Format, type LintReport } from './index.js';
+import { build, buildMermaid, extract, EXTRACTORS, FORMAT_NAMES, FORMATS, formatReport, IconLibrary, lint, svgToPng, tidy, toSvg, type BuildOptions, type Format, type LintReport } from './index.js';
 
 const USAGE = `draftr — the model says what, draftr decides where.
 
@@ -12,6 +12,8 @@ usage: draftr <command> <file> [options]
   tidy   <file.excalidraw>                       recover the graph from a messy file and re-lay it out
   render <file.excalidraw>                       offline render -> .svg (+ .png)
   icons  [query]                                 search the icon library (no query: counts)
+  extract <${Object.keys(EXTRACTORS).join('|')}> <dir>        read code -> graph .json + diagram
+${Object.entries(EXTRACTORS).map(([k, v]) => `           ${k.padEnd(8)} ${v}`).join('\n')}
 
 options:
   -o, --out <prefix>   output path prefix (default: next to the input; tidy adds ".tidy")
@@ -20,12 +22,21 @@ options:
   --no-icons           draw no icons
   --icons <dir>        add a folder of your own .svg icons (repeatable; also DRAFTR_ICONS)
   --json               print the lint report as JSON
+
+extract options:
+  --by <file|dir>      deps: one box per file or per directory (default: whichever fits)
+  --depth <n>          deps: directory depth to fold to with --by dir
+  --external           deps: also draw the most used third-party packages
+  --tests              deps: include test files
+  --all-edges          deps: keep edges already implied by others
+  --graph-only         write the graph .json only (edit it, then draftr build it)
   -h, --help           show this help`;
 
 const args = process.argv.slice(2);
 const flag = (...k: string[]) => args.some((a) => k.includes(a));
 const opt = (...k: string[]) => { const i = args.findIndex((a) => k.includes(a)); return i >= 0 ? args[i + 1] : undefined; };
-const [cmd, file] = args.filter((a, i) => !a.startsWith('-') && !['-o', '--out', '--icons', '-f', '--format'].includes(args[i - 1]));
+const VALUED = ['-o', '--out', '--icons', '-f', '--format', '--keep', '--by', '--depth'];
+const [cmd, file, arg2] = args.filter((a, i) => !a.startsWith('-') && !VALUED.includes(args[i - 1]));
 const iconDirs = args.flatMap((a, i) => (a === '--icons' && args[i + 1] ? [args[i + 1]] : []));
 const format = (opt('-f', '--format') ?? 'excalidraw') as Format;
 if (!FORMATS[format]) { console.error(`draftr: unknown format "${format}" (use one of: ${FORMAT_NAMES.join(', ')})`); process.exit(1); }
@@ -63,6 +74,25 @@ async function main() {
     if (!hits.length) { console.log(`no icons match "${file}"`); return 1; }
     for (const i of hits) console.log(`${i.name.padEnd(24)} ${i.source.padEnd(8)} ${i.title}`);
     return 0;
+  }
+  if (cmd === 'extract') {
+    if (!arg2) { console.error(`draftr extract: usage: draftr extract <${Object.keys(EXTRACTORS).join('|')}> <dir>`); return 1; }
+    const kind = file as keyof typeof EXTRACTORS;
+    const by = opt('--by') as 'file' | 'dir' | undefined;
+    const { graph, notes } = extract(kind, arg2, {
+      by, depth: opt('--depth') ? Number(opt('--depth')) : undefined,
+      external: flag('--external'), tests: flag('--tests'), allEdges: flag('--all-edges'),
+    });
+    const prefix = opt('-o', '--out') ?? `${basename(arg2.replace(/\/+$/, '')) || 'code'}.${kind}`;
+    mkdirSync(dirname(prefix), { recursive: true });
+    writeFileSync(`${prefix}.json`, JSON.stringify(graph, null, 2) + '\n');
+    for (const n of notes) console.error(n);
+    if (flag('--graph-only')) { console.error(`wrote ${prefix}.json`); return 0; }
+    const res = await build(graph, buildOpts);
+    const files = await write(prefix, res.file, res.svg);
+    show(res.report);
+    console.error(`wrote ${prefix}.json, ${files.join(', ')}`);
+    return res.report.ok ? 0 : 1;
   }
   const src = readFileSync(file, 'utf8');
   switch (cmd) {
