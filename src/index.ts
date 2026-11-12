@@ -1,6 +1,7 @@
 import { layoutGraph } from './layout.js';
 import { toExcalidraw } from './excalidraw.js';
 import { toDrawio } from './drawio.js';
+import { toTldraw } from './tldraw.js';
 import { graphModel, type DiagramModel } from './model.js';
 import { modelToSvg } from './model-svg.js';
 import { sequenceModel } from './sequence.js';
@@ -12,7 +13,7 @@ import type { DiagramInput } from './schema.js';
 import { IconLibrary, type IconOptions } from './icons/index.js';
 import type { ExcalidrawDoc } from './types.js';
 
-export { layoutGraph, toExcalidraw, toDrawio, toSvg, modelToSvg, graphModel, sequenceModel, lint, parseMermaid, extractGraph };
+export { layoutGraph, toExcalidraw, toDrawio, toTldraw, toSvg, modelToSvg, graphModel, sequenceModel, lint, parseMermaid, extractGraph };
 export { formatReport, type LintReport, type Issue, type IssueCode } from './lint.js';
 export { parseGraph, parseSequence, GraphSchema, SequenceSchema, KINDS } from './schema.js';
 export type { GraphInput, SequenceInput, DiagramInput, Kind } from './schema.js';
@@ -26,6 +27,7 @@ export { IconLibrary, type Icon, type IconOptions } from './icons/index.js';
 export const FORMATS = {
   excalidraw: { ext: '.excalidraw', label: 'Excalidraw (excalidraw.com, VS Code, Obsidian)' },
   drawio: { ext: '.drawio', label: 'draw.io / diagrams.net (desktop, web, Confluence, VS Code)' },
+  tldraw: { ext: '.tldr', label: 'tldraw (tldraw.com, VS Code)' },
 } as const;
 export type Format = keyof typeof FORMATS;
 export const FORMAT_NAMES = Object.keys(FORMATS) as Format[];
@@ -54,6 +56,7 @@ export function exportModel(model: DiagramModel, format: Format, excalidraw = to
   switch (format) {
     case 'excalidraw': return JSON.stringify(excalidraw, null, 2);
     case 'drawio': return toDrawio(model, model.title ?? 'draftr');
+    case 'tldraw': return toTldraw(model, model.title ?? 'draftr');
     default: throw new Error(`unknown format "${format}" (use one of: ${FORMAT_NAMES.join(', ')})`);
   }
 }
