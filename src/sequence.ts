@@ -1,6 +1,8 @@
 // Sequence diagrams: participants as columns, messages as rows. Columns are
 // spaced so every message label fits between the lifelines it connects.
-import { base, doc, polyline, resetSeed, text } from './excalidraw.js';
+import { base, doc, FileStore, iconImage, polyline, resetSeed, text } from './excalidraw.js';
+import { IconLibrary } from './icons/index.js';
+import { ICON_GAP, ICON_SIZE } from './layout.js';
 import { measureText } from './measure.js';
 import { parseSequence } from './schema.js';
 import { THEME } from './theme.js';
@@ -13,15 +15,19 @@ const SELF_H = 30;
 const SELF_W = 36;
 const COL_GAP = 48;
 
-export function sequenceToExcalidraw(input: unknown): ExcalidrawDoc {
+export function sequenceToExcalidraw(input: unknown, opts: { icons?: IconLibrary | false } = {}): ExcalidrawDoc {
   const s = parseSequence(input);
   resetSeed();
+  const lib = opts.icons === false ? undefined : opts.icons ?? new IconLibrary();
+  const icons = s.participants.map((p) => lib?.forNode(p));
+  const store = new FileStore();
   const idx = Object.fromEntries(s.participants.map((p, i) => [p.id, i]));
   const labels = s.messages.map((m, i) => (s.autonumber ? `${i + 1}. ${m.label}` : m.label).trim());
 
-  const heads = s.participants.map((p) => {
+  const heads = s.participants.map((p, i) => {
     const t = measureText(p.label, FONT);
-    return { w: Math.max(120, Math.ceil(t.width + 40)), h: Math.max(56, Math.ceil(t.height + 28)) };
+    const iconW = icons[i] ? ICON_SIZE + ICON_GAP : 0;
+    return { w: Math.max(120, Math.ceil(t.width + 40 + iconW)), h: Math.max(56, Math.ceil(t.height + 28)) };
   });
   const n = s.participants.length;
 
@@ -93,17 +99,26 @@ export function sequenceToExcalidraw(input: unknown): ExcalidrawDoc {
     els.push(polyline('line', `lifeline:${p.id}`, [{ x: cx[i], y: top + headH }, { x: cx[i], y: bottom }], {
       strokeColor: THEME.muted, strokeWidth: 1, strokeStyle: 'dashed', customData: { role: 'lifeline', participant: p.id },
     }));
+    const icon = icons[i];
+    const grp = icon ? [`g:${p.id}`] : [];
     els.push(base(shape, id, cx[i] - h.w / 2, hy, h.w, h.h, {
       strokeColor: k.stroke, backgroundColor: k.bg, strokeStyle: k.dashed ? 'dashed' : 'solid',
       roundness: shape === 'rectangle' ? { type: 3 } : { type: 2 },
-      boundElements: [{ type: 'text', id: `${id}:text` }],
-      customData: { role: 'participant', participant: p.id, kind: p.kind },
+      boundElements: icon ? [] : [{ type: 'text', id: `${id}:text` }],
+      groupIds: grp,
+      customData: { role: 'participant', participant: p.id, kind: p.kind, ...(icon ? { icon: icon.name } : {}) },
     }));
     const m = measureText(p.label, FONT);
-    els.push(text(`${id}:text`, p.label, cx[i] - m.width / 2, hy + (h.h - m.height) / 2, FONT, {
-      textAlign: 'center', verticalAlign: 'middle', containerId: id,
-    }));
+    if (icon) {
+      const x0 = cx[i] - (ICON_SIZE + ICON_GAP + m.width) / 2;
+      els.push(iconImage(`${id}:icon`, store, icon, x0, hy + (h.h - ICON_SIZE) / 2, ICON_SIZE, k.stroke, { groupIds: grp }));
+      els.push(text(`${id}:text`, p.label, x0 + ICON_SIZE + ICON_GAP, hy + (h.h - m.height) / 2, FONT, { groupIds: grp, customData: { role: 'node-label', nodeId: p.id } }));
+    } else {
+      els.push(text(`${id}:text`, p.label, cx[i] - m.width / 2, hy + (h.h - m.height) / 2, FONT, {
+        textAlign: 'center', verticalAlign: 'middle', containerId: id,
+      }));
+    }
   });
 
-  return doc([...els, ...msgEls]);
+  return doc([...els, ...msgEls], store.files);
 }

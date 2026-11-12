@@ -2,6 +2,7 @@
 // Excalidraw file, so it can be re-laid out cleanly: `draftr tidy`.
 import { absPoints, classifyShapes, distToSeg, gapBetween } from './lint.js';
 import { measureText } from './measure.js';
+import { IconLibrary } from './icons/index.js';
 import { KINDS, type GraphInput, type Kind } from './schema.js';
 import type { Box, ExElement, ExcalidrawDoc } from './types.js';
 
@@ -11,6 +12,7 @@ const center = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
 const slug = (s: string) => s.replace(/[^A-Za-z0-9_\-:.]/g, '_');
 
 export function extractGraph(d: ExcalidrawDoc): GraphInput {
+  const knownIcons = new IconLibrary();
   const els = (d.elements ?? []).filter((e) => !e.isDeleted);
   const { leaves, groups } = classifyShapes(els.filter((e) => e.customData?.role !== 'label-bg'));
   const texts = els.filter((e) => e.type === 'text');
@@ -25,6 +27,12 @@ export function extractGraph(d: ExcalidrawDoc): GraphInput {
   };
   const labelOf = new Map<string, string>();
   for (const t of texts) if (t.containerId && t.text) { labelOf.set(t.containerId, String(t.text)); used.add(t.id); }
+  // draftr's own icon nodes: the label is a grouped free text tagged with the node id
+  for (const t of texts) {
+    const nid = t.customData?.role === 'node-label' ? t.customData.nodeId : undefined;
+    const owner = nid ? leaves.find((l) => l.customData?.nodeId === nid || l.customData?.participant === nid) : undefined;
+    if (owner && t.text) { labelOf.set(owner.id, String(t.text)); used.add(t.id); }
+  }
   for (const t of texts) {
     if (t.containerId || used.has(t.id)) continue;
     const tb = textBox(t);
@@ -60,6 +68,7 @@ export function extractGraph(d: ExcalidrawDoc): GraphInput {
       id: slug(String(s.customData?.nodeId ?? s.id)),
       label: lab ?? String(s.customData?.nodeId ?? s.id),
       kind: inferKind(s, lab),
+      ...(typeof s.customData?.icon === 'string' && knownIcons.get(s.customData.icon) ? { icon: s.customData.icon } : {}),
       group: parentGroup(rect(s)) ? slug(parentGroup(rect(s))!.id.replace(/^group:/, '')) : undefined,
       highlight: s.strokeWidth >= 3 || undefined,
       _el: s,

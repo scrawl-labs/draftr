@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { build, buildMermaid, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildResult, type LintReport } from './index.js';
+import { build, buildMermaid, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type LintReport } from './index.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -47,6 +47,8 @@ const guard = <A>(fn: (a: A) => Promise<{ content: Content[] }>) => async (a: A)
 
 const out = z.string().describe('output path for the .excalidraw file, e.g. docs/diagrams/checkout.excalidraw (an .svg is written next to it)');
 const wantPreview = z.boolean().default(true).describe('return a PNG preview');
+const iconsArg = z.boolean().default(true).describe('draw icons (picked automatically from labels unless a node sets `icon`)');
+const iconOpts = (on: boolean): BuildOptions => ({ icons: on ? {} : false });
 
 server.registerTool('build_diagram', {
   title: 'Build an architecture / flow diagram',
@@ -56,20 +58,20 @@ server.registerTool('build_diagram', {
     'Tips: mark the 1–2 nodes/edges that carry the point of the diagram with highlight:true; use groups for trust/deployment boundaries;',
     'use dashed edges for async; kinds: service, database, queue, external, user, client, storage, decision, note.',
   ].join(' '),
-  inputSchema: { graph: GraphSchema, out, preview: wantPreview },
-}, guard(async ({ graph, out: o, preview: p }) => emit(await build(graph), o, p)));
+  inputSchema: { graph: GraphSchema, out, preview: wantPreview, icons: iconsArg },
+}, guard(async ({ graph, out: o, preview: p, icons }) => emit(await build(graph, iconOpts(icons)), o, p)));
 
 server.registerTool('build_sequence', {
   title: 'Build a sequence diagram',
   description: 'Create a sequence diagram from participants and ordered messages (dashed = reply/async; a message to itself draws a loop). Column spacing is computed so every label fits. Writes .excalidraw + .svg and returns a lint report and a PNG preview.',
-  inputSchema: { sequence: SequenceSchema, out, preview: wantPreview },
-}, guard(async ({ sequence, out: o, preview: p }) => emit(await build(sequence), o, p)));
+  inputSchema: { sequence: SequenceSchema, out, preview: wantPreview, icons: iconsArg },
+}, guard(async ({ sequence, out: o, preview: p, icons }) => emit(await build(sequence, iconOpts(icons)), o, p)));
 
 server.registerTool('build_from_mermaid', {
   title: 'Build a diagram from Mermaid',
   description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable Excalidraw diagram with lint report and preview. Useful for upgrading existing Mermaid docs.',
-  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview },
-}, guard(async ({ source, out: o, preview: p }) => emit(await buildMermaid(source), o, p)));
+  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg },
+}, guard(async ({ source, out: o, preview: p, icons }) => emit(await buildMermaid(source, iconOpts(icons)), o, p)));
 
 server.registerTool('lint_diagram', {
   title: 'Lint an Excalidraw file',
@@ -83,9 +85,9 @@ server.registerTool('lint_diagram', {
 server.registerTool('tidy_diagram', {
   title: 'Tidy a messy Excalidraw file',
   description: 'Recover the graph (shapes, labels, arrows, groups) from an existing .excalidraw file and re-lay it out cleanly. Prefer this over hand-editing coordinates to fix lint errors.',
-  inputSchema: { path: z.string(), out: out.optional().describe('defaults to <name>.tidy.excalidraw'), preview: wantPreview },
-}, guard(async ({ path, out: o, preview: p }) => {
-  const res = await tidy(JSON.parse(readFileSync(resolve(path), 'utf8')));
+  inputSchema: { path: z.string(), out: out.optional().describe('defaults to <name>.tidy.excalidraw'), preview: wantPreview, icons: iconsArg },
+}, guard(async ({ path, out: o, preview: p, icons }) => {
+  const res = await tidy(JSON.parse(readFileSync(resolve(path), 'utf8')), iconOpts(icons));
   return emit(res, o ?? resolve(path).replace(/\.excalidraw$/, '') + '.tidy.excalidraw', p, `before: score ${res.before.score}/100 — ${res.before.summary}\nafter:  `);
 }));
 
@@ -98,6 +100,15 @@ server.registerTool('render_diagram', {
   const svg = toSvg(JSON.parse(readFileSync(p, 'utf8')));
   writeOut(p.replace(/\.excalidraw$/, '') + '.svg', svg);
   return { content: await preview(svg, true) };
+}));
+
+server.registerTool('search_icons', {
+  title: 'Search icons',
+  description: 'Find icon names for the `icon` field of nodes/participants: 240 developer brands (postgresql, kafka, stripe, kubernetes…), 120+ generic icons (server, database, mail, credit-card…) and the user\'s own icons from DRAFTR_ICONS folders. Icons are also picked automatically from labels, so only use this to override or when a label is ambiguous.',
+  inputSchema: { query: z.string().describe('e.g. "postgres", "queue", "payment"'), limit: z.number().int().min(1).max(50).default(15) },
+}, guard(async ({ query, limit }) => {
+  const hits = new IconLibrary().search(query, limit);
+  return { content: [{ type: 'text', text: hits.length ? hits.map((i) => `${i.name} (${i.source}) — ${i.title}`).join('\n') : `no icons match "${query}"` }] };
 }));
 
 await server.connect(new StdioServerTransport());

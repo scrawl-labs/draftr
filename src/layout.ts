@@ -5,6 +5,7 @@ import type { ELK as ElkInstance, ELKConstructorArguments, ElkNode, ElkExtendedE
 import { measureText, wrapText } from './measure.js';
 import { parseGraph, type Graph } from './schema.js';
 import type { Pt, Scene } from './types.js';
+import { IconLibrary, type Icon } from './icons/index.js';
 
 // elkjs ships CommonJS; require() sidesteps default-export interop differences.
 const ELK = createRequire(import.meta.url)('elkjs/lib/elk.bundled.js') as new (args?: ELKConstructorArguments) => ElkInstance;
@@ -14,10 +15,14 @@ const LABEL_FONT = 14;
 const GROUP_FONT = 16;
 const MAX_LABEL_W = 220;
 
-export function nodeSize(node: Graph['nodes'][number]): { label: string; w: number; h: number } {
+export const ICON_SIZE = 20;
+export const ICON_GAP = 8;
+
+export function nodeSize(node: Graph['nodes'][number], icon?: Icon): { label: string; w: number; h: number } {
   const label = wrapText(node.label, MAX_LABEL_W, FONT_SIZE);
   const t = measureText(label, FONT_SIZE);
-  let w = Math.max(140, Math.ceil(t.width + 40));
+  const iconW = icon && node.kind !== 'decision' ? ICON_SIZE + ICON_GAP : 0;
+  let w = Math.max(140, Math.ceil(t.width + 40 + iconW));
   let h = Math.max(64, Math.ceil(t.height + 32));
   if (node.kind === 'user') { w = Math.ceil(w * 1.3); h = Math.ceil(h * 1.35); } // text fits the inscribed box
   if (node.kind === 'decision') { w = Math.max(160, Math.ceil(2 * (t.width + 14) + 6)); h = Math.max(96, Math.ceil(2 * (t.height + 8) + 6)); }
@@ -28,13 +33,17 @@ type ElkEdgeOut = ElkExtendedEdge & { container?: string };
 
 export interface LayoutOptions {
   /** Override how big each node is (e.g. for icon cards). Defaults to text-fit boxes. */
-  nodeSize?: (node: Graph['nodes'][number]) => { label: string; w: number; h: number };
+  nodeSize?: (node: Graph['nodes'][number], icon?: Icon) => { label: string; w: number; h: number };
+  /** Icon library, or false to draw no icons. Default: built-in icons + DRAFTR_ICONS folders. */
+  icons?: IconLibrary | false;
 }
 
 export async function layoutGraph(input: unknown, opts: LayoutOptions = {}): Promise<Scene> {
   const g = parseGraph(input);
   const sizeOf = opts.nodeSize ?? nodeSize;
-  const sizes = Object.fromEntries(g.nodes.map((n) => [n.id, sizeOf(n)]));
+  const lib = opts.icons === false ? undefined : opts.icons ?? new IconLibrary();
+  const icons: Record<string, Icon | undefined> = Object.fromEntries(g.nodes.map((n) => [n.id, lib?.forNode(n)]));
+  const sizes = Object.fromEntries(g.nodes.map((n) => [n.id, sizeOf(n, icons[n.id])]));
   const hasLabels = g.edges.some((e) => e.label);
 
   const elkGroups: Record<string, ElkNode> = Object.fromEntries(g.groups.map((gr) => {
@@ -121,7 +130,7 @@ export async function layoutGraph(input: unknown, opts: LayoutOptions = {}): Pro
     width: res.width ?? 0,
     height: res.height ?? 0,
     groups: g.groups.map((gr) => ({ ...gr, ...placed[gr.id], depth: depthOf(gr.id) })),
-    nodes: g.nodes.map((n) => ({ ...n, label: sizes[n.id].label, ...placed[n.id] })),
+    nodes: g.nodes.map(({ icon: _icon, ...n }) => ({ ...n, label: sizes[n.id].label, ...placed[n.id], icon: icons[n.id] })),
     edges: edges.map((le) => {
       const i = Number(le.id.slice(1));
       const src = g.edges[i];
