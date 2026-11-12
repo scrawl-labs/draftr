@@ -20,6 +20,7 @@ export type { GraphInput, SequenceInput, DiagramInput, Kind } from './schema.js'
 export type { ExcalidrawDoc, ExElement, Scene } from './types.js';
 export type { DiagramModel, DNode, DEdge, DGroup } from './model.js';
 export { THEME } from './theme.js';
+export { extract, extractDeps, extractRoutes, extractSchema, findRoutes, findSchema, EXTRACTORS, type ExtractorName, type ExtractOptions, type Extracted, type Route, type Table, type ForeignKey } from './extract/index.js';
 export { svgToPng } from './render.js';
 export { IconLibrary, type Icon, type IconOptions } from './icons/index.js';
 

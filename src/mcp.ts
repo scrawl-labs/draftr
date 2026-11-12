@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { build, buildMermaid, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
+import { build, buildMermaid, extract, EXTRACTORS, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -76,6 +76,31 @@ server.registerTool('build_from_mermaid', {
   description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
   inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
 }, guard(async ({ source, out: o, preview: p, icons, format }) => emit(await buildMermaid(source, opts(icons, format)), o, p)));
+
+server.registerTool('extract_graph', {
+  title: 'Extract a graph from code',
+  description: [
+    'Read a codebase and return a draftr graph, so the diagram starts from what the code actually does:',
+    Object.entries(EXTRACTORS).map(([k, v]) => `${k} = ${v}`).join('; ') + '.',
+    'Returns the graph JSON. Usually refine it (better labels, groups, kinds, highlight the 1–2 things that matter, drop noise) and pass it to build_diagram;',
+    'or give `out` to build it as is. deps folds files into directories when there are too many, leaves out edges implied by others, and highlights import cycles.',
+  ].join(' '),
+  inputSchema: {
+    kind: z.enum(Object.keys(EXTRACTORS) as [keyof typeof EXTRACTORS, ...Array<keyof typeof EXTRACTORS>]),
+    path: z.string().describe('directory (or file) to read'),
+    by: z.enum(['auto', 'file', 'dir']).default('auto').describe('deps: one box per file or per directory'),
+    depth: z.number().int().min(1).optional().describe('deps: directory depth to fold to'),
+    external: z.boolean().default(false).describe('deps: also draw the most used third-party packages'),
+    out: out.optional().describe('build the diagram as is, written here (omit to just get the graph back)'),
+    preview: wantPreview, icons: iconsArg, format: formatArg,
+  },
+}, guard(async ({ kind, path, by, depth, external, out: o, preview: p, icons, format }) => {
+  const { graph, notes } = extract(kind, resolve(path), { by, depth, external });
+  const text = `${notes.join('\n')}\n\n${JSON.stringify(graph)}`;
+  if (!o) return { content: [{ type: 'text', text }] };
+  const res = await emit(await build(graph, opts(icons, format)), o, p);
+  return { content: [{ type: 'text', text }, ...res.content] };
+}));
 
 server.registerTool('lint_diagram', {
   title: 'Lint an Excalidraw file',

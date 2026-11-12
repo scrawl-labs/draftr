@@ -147,6 +147,16 @@ Recover the graph from a messy file — shapes, labels (even ones that spill out
 | --- | --- |
 | <img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/tidy-before.png"/> | <img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/tidy-after.png"/> |
 
+#### 🧬 `extract_graph`
+
+Start from what the code actually does instead of what the model remembers. Reads a codebase and returns a draftr graph the agent can refine (labels, groups, the one thing to highlight) before `build_diagram`, or builds it as is with `out`:
+
+- **`deps`**: module dependencies from JS/TS (`import`, `export … from`, `require`, `import()`, tsconfig `paths`), Python and Go. One box per file while it fits, folded into directories when it doesn't. Edges already implied by others are left out, so it reads as a structure rather than a hairball, and import cycles are highlighted.
+- **`routes`**: HTTP endpoints from Express / Fastify / Hono / Koa, NestJS, Next.js (app and pages routers), FastAPI / Flask and Go (net/http, gin, echo, chi), with router prefixes resolved. Drawn as client → prefix → endpoint, each captioned with its `file:line`.
+- **`schema`**: tables and foreign keys from SQL migrations, Prisma, Django models and Rails `schema.rb`.
+
+> "draw the module structure of src/, and highlight anything that imports the db layer"
+
 #### 🖼️ `render_diagram`
 
 Render a `.excalidraw` file to PNG offline. No CDN, no browser tab.
@@ -238,9 +248,14 @@ draftr lint   docs/architecture.excalidraw             # exit 1 on errors, --jso
 draftr tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
 draftr render docs/architecture.excalidraw --no-png    # offline SVG
 draftr icons  kafka                                    # search icons
+draftr extract deps   src/ -o docs/modules              # code → graph .json + diagram
+draftr extract routes . --format drawio
+draftr extract schema db/migrations
 ```
 
 Flags: `-o <prefix>`, `-f`/`--format <name>`, `--no-png`, `--json`, `--no-icons`, `--icons <dir>`.
+
+`extract` writes the graph as `.json` next to the diagram, so you can edit it and `draftr build` it again. Its flags: `--by file|dir`, `--depth <n>`, `--external` (draw third-party packages), `--tests`, `--all-edges`, `--graph-only`.
 
 `lint` exits non-zero on errors, so you can keep every diagram in your repo honest in CI:
 
@@ -369,7 +384,7 @@ Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/
 ## Roadmap
 
 - [ ] Incremental layout — keep the boxes a human moved in Excalidraw, re-lay out only the rest
-- [ ] Code → graph extractors (module dependencies, HTTP routes, DB schema)
+- [x] Code → graph extractors (module dependencies, HTTP routes, DB schema)
 - [ ] PR bot: before/after diagram of the changed flow on every pull request
 - [ ] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
 - [x] draw.io output
