@@ -21,8 +21,10 @@ export interface IconOptions {
   dirs?: string[];
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9.+#/]+/g, ' ').trim();
-const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+// Hangul is kept so Korean labels and file names can match too.
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9.+#/\uac00-\ud7af]+/g, ' ').trim();
+const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9\uac00-\ud7af]+/g, '');
+const HANGUL = /[\uac00-\ud7af]/;
 
 function brandIcon(b: BrandIcon): Icon {
   return {
@@ -162,10 +164,18 @@ function matchBrand(label: string): BrandIcon | undefined {
   return undefined;
 }
 
+// Korean keywords, longest first, matched anywhere: Korean labels often have no spaces ("결제서비스").
+const KO_KEYWORDS = GENERIC_KEYWORDS.flatMap(([name, kws]) => kws.filter((k) => HANGUL.test(k)).map((k) => [compact(k), name] as const))
+  .sort((a, b) => b[0].length - a[0].length);
+
 function matchGeneric(label: string): string | undefined {
   const text = ` ${norm(label)} `;
   for (const [name, kws] of GENERIC_KEYWORDS) {
-    for (const kw of kws) if (text.includes(` ${norm(kw)} `)) return name;
+    for (const kw of kws) if (!HANGUL.test(kw) && text.includes(` ${norm(kw)} `)) return name;
+  }
+  if (HANGUL.test(label)) {
+    const c = compact(label);
+    for (const [kw, name] of KO_KEYWORDS) if (c.includes(kw)) return name;
   }
   return undefined;
 }

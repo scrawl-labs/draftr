@@ -29,6 +29,18 @@ describe('icon matching', () => {
     ['Shopper', 'user', 'user'],
   ])('generic: %s -> %s', (label, kind, want) => expect(pick(label, kind)).toBe(want));
 
+  it.each([
+    ['결제 서비스', 'service', 'credit-card'],
+    ['결제서비스', 'service', 'credit-card'],
+    ['주문 서비스', 'service', 'shopping-cart'],
+    ['이메일 워커', 'service', 'mail'],
+    ['재고 워커', 'service', 'package'],
+    ['웹훅 수신기', 'service', 'webhook'],
+    ['구매자', 'user', 'user'],
+    ['Postgres 주문 DB', 'database', 'postgresql'],
+    ['주문 이벤트', 'queue', 'layers'],
+  ])('korean: %s -> %s', (label, kind, want) => expect(pick(label, kind)).toBe(want));
+
   it('falls back to the kind, and prefers the kind for queues and databases', () => {
     expect(pick('order.created', 'queue')).toBe('layers');
     expect(pick('orders', 'database')).toBe('database');
@@ -70,6 +82,12 @@ describe('custom icon folders', () => {
     expect(mine.forNode({ label: 'Acme Billing' })?.source).toBe('custom');
     expect(mine.get('postgresql')?.source).toBe('custom');
     expect(mine.get('postgresql')!.svg('#fff')).toContain('fill="#000"'); // custom icons keep their colors
+  });
+
+  it('matches Korean file names', () => {
+    const ko = mkdtempSync(join(tmpdir(), 'draftr-icons-ko-'));
+    writeFileSync(join(ko, '정산-시스템.svg'), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>');
+    expect(new IconLibrary({ dirs: [ko] }).forNode({ label: '정산 시스템' })?.name).toBe('정산-시스템');
   });
 
   it('rejects missing folders', () => {

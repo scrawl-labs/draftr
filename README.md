@@ -152,7 +152,7 @@ Every box gets an icon, picked from its label. Write `PostgreSQL`, `orders DB (P
 | Set | What | Examples |
 | --- | --- | --- |
 | **Brands** | 240 developer logos from [Simple Icons](https://simpleicons.org) | `postgresql` `mongodb` `redis` `apachekafka` `kubernetes` `docker` `stripe` `github` `grafana` `nextdotjs` |
-| **Generic** | 120+ line icons from [Lucide](https://lucide.dev) | `server` `database` `layers` `mail` `credit-card` `shopping-cart` `route` `key-round` `cog` `brain` |
+| **Generic** | 120+ line icons from [Lucide](https://lucide.dev), matched from English and Korean keywords | `server` `database` `layers` `mail` `credit-card` `shopping-cart` `route` `key-round` `cog` `brain` |
 | **Yours** | every `.svg` in your icon folders | `acme-billing` → matches a box labelled "Acme Billing" |
 
 How a box gets its icon, first match wins:
