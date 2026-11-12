@@ -1,0 +1,31 @@
+[
+ {
+  "traceId": "z1",
+  "id": "a",
+  "name": "get /search",
+  "kind": "SERVER",
+  "timestamp": 1000,
+  "duration": 50000,
+  "localEndpoint": {
+   "serviceName": "frontend"
+  }
+ },
+ {
+  "traceId": "z1",
+  "id": "b",
+  "parentId": "a",
+  "name": "query",
+  "kind": "CLIENT",
+  "timestamp": 2000,
+  "duration": 40000,
+  "localEndpoint": {
+   "serviceName": "frontend"
+  },
+  "remoteEndpoint": {
+   "serviceName": "elasticsearch"
+  },
+  "tags": {
+   "error": "timeout"
+  }
+ }
+]

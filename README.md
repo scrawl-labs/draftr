@@ -119,6 +119,14 @@ Mermaid `flowchart` / `graph` and `sequenceDiagram` in, laid-out editable Excali
 
 <p align="center"><img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/mermaid.png" width="900"/></p>
 
+#### 🛰️ `build_from_trace`
+
+The sequence diagram of what actually happened, not what the design doc says. Give it a distributed trace (OpenTelemetry OTLP JSON or collector NDJSON, Tempo, Jaeger, Zipkin) and it draws the calls between services, with each reply's status and duration. Databases, queues and third parties are named from span attributes, and a message through Kafka goes via the topic. Repeated identical calls collapse into `×N`, which is how an N+1 query shows up, and failed spans are highlighted.
+
+It also reads [speedwagon](https://github.com/scrawl-labs/speedwagon)'s `incident_timeline` output: deploys and alert state changes, per service, in time order.
+
+> "draw trace 5b8efff7 from traces.json and tell me where the time went"
+
 #### 🔍 `lint_diagram`
 
 Lint **any** `.excalidraw` file, including ones a human or another tool made.
@@ -238,6 +246,7 @@ draftr lint   docs/architecture.excalidraw             # exit 1 on errors, --jso
 draftr tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
 draftr render docs/architecture.excalidraw --no-png    # offline SVG
 draftr icons  kafka                                    # search icons
+draftr trace  traces.json --trace-id 5b8efff7          # OTLP / Jaeger / Zipkin → sequence diagram
 ```
 
 Flags: `-o <prefix>`, `-f`/`--format <name>`, `--no-png`, `--json`, `--no-icons`, `--icons <dir>`.
@@ -371,7 +380,7 @@ Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/
 - [ ] Incremental layout — keep the boxes a human moved in Excalidraw, re-lay out only the rest
 - [ ] Code → graph extractors (module dependencies, HTTP routes, DB schema)
 - [ ] PR bot: before/after diagram of the changed flow on every pull request
-- [ ] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
+- [x] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
 - [x] draw.io output
 - [x] tldraw output
 - [x] Publish to npm
