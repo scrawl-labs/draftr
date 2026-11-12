@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { build, buildMermaid, extract, EXTRACTORS, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
+import { build, buildDiff, buildMermaid, describeDiff, extract, EXTRACTORS, readGraphFile, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -100,6 +100,15 @@ server.registerTool('extract_graph', {
   if (!o) return { content: [{ type: 'text', text }] };
   const res = await emit(await build(graph, opts(icons, format)), o, p);
   return { content: [{ type: 'text', text }, ...res.content] };
+}));
+
+server.registerTool('diff_diagrams', {
+  title: 'Diff two versions of a diagram',
+  description: 'Draw what changed between two versions of a graph (draftr .json, Mermaid flowchart or .excalidraw): one diagram with added boxes and arrows in green, removed ones in red and dashed, changed ones in amber, the rest in grey. Use it to review a change to an architecture, or to show what a refactor did to the module structure (pair with extract_graph on two checkouts).',
+  inputSchema: { before: z.string().describe('path of the old version'), after: z.string().describe('path of the new version'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
+}, guard(async ({ before, after, out: o, preview: p, icons, format }) => {
+  const res = await buildDiff(readGraphFile(resolve(before)), readGraphFile(resolve(after)), opts(icons, format));
+  return emit(res, o, p, `${describeDiff(res.diff)}\n`);
 }));
 
 server.registerTool('lint_diagram', {

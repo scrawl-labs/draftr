@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { build, buildMermaid, extract, EXTRACTORS, FORMAT_NAMES, FORMATS, formatReport, IconLibrary, lint, svgToPng, tidy, toSvg, type BuildOptions, type Format, type LintReport } from './index.js';
+import { build, buildDiff, buildMermaid, describeDiff, extract, EXTRACTORS, prReport, readGraphFile, FORMAT_NAMES, FORMATS, formatReport, IconLibrary, lint, svgToPng, tidy, toSvg, type BuildOptions, type Format, type LintReport } from './index.js';
 
 const USAGE = `draftr — the model says what, draftr decides where.
 
@@ -12,6 +12,8 @@ usage: draftr <command> <file> [options]
   tidy   <file.excalidraw>                       recover the graph from a messy file and re-lay it out
   render <file.excalidraw>                       offline render -> .svg (+ .png)
   icons  [query]                                 search the icon library (no query: counts)
+  diff   <before> <after>                        one diagram of what changed (graph .json, .mmd or .excalidraw)
+  pr     --base <ref> [--head <ref>]             diff every diagram a PR touches (+ --extract) -> SVGs + report.md
   extract <${Object.keys(EXTRACTORS).join('|')}> <dir>        read code -> graph .json + diagram
 ${Object.entries(EXTRACTORS).map(([k, v]) => `           ${k.padEnd(8)} ${v}`).join('\n')}
 
@@ -30,12 +32,21 @@ extract options:
   --tests              deps: include test files
   --all-edges          deps: keep edges already implied by others
   --graph-only         write the graph .json only (edit it, then draftr build it)
+
+pr options:
+  --base <ref>         compare against this commit (its merge base with head)
+  --head <ref>         default HEAD; WORKTREE reads files from disk
+  --extract <kind:dir> also diff a graph extracted from the code (repeatable), e.g. deps:src
+  --paths <glob>       only diagram files matching (repeatable), e.g. 'docs/**'
+  --out <dir>          where SVGs and report.md go (default .draftr-pr)
+  --image-base <url>   prefix for image links in report.md
   -h, --help           show this help`;
 
 const args = process.argv.slice(2);
 const flag = (...k: string[]) => args.some((a) => k.includes(a));
 const opt = (...k: string[]) => { const i = args.findIndex((a) => k.includes(a)); return i >= 0 ? args[i + 1] : undefined; };
-const VALUED = ['-o', '--out', '--icons', '-f', '--format', '--keep', '--by', '--depth'];
+const VALUED = ['-o', '--out', '--icons', '-f', '--format', '--keep', '--by', '--depth', '--base', '--head', '--extract', '--paths', '--image-base'];
+const many = (k: string) => args.flatMap((a, i) => (a === k && args[i + 1] ? [args[i + 1]] : []));
 const [cmd, file, arg2] = args.filter((a, i) => !a.startsWith('-') && !VALUED.includes(args[i - 1]));
 const iconDirs = args.flatMap((a, i) => (a === '--icons' && args[i + 1] ? [args[i + 1]] : []));
 const format = (opt('-f', '--format') ?? 'excalidraw') as Format;
@@ -43,7 +54,7 @@ if (!FORMATS[format]) { console.error(`draftr: unknown format "${format}" (use o
 const buildOpts: BuildOptions = { icons: flag('--no-icons') ? false : { dirs: iconDirs }, format };
 
 if (flag('-h', '--help') || !cmd) { console.log(USAGE); process.exit(cmd || flag('-h', '--help') ? 0 : 1); }
-if (!file && cmd !== 'icons') { console.error(`draftr ${cmd}: missing <file>\n\n${USAGE}`); process.exit(1); }
+if (!file && cmd !== 'icons' && cmd !== 'pr') { console.error(`draftr ${cmd}: missing <file>\n\n${USAGE}`); process.exit(1); }
 
 const stem = file ? join(dirname(file), basename(file, extname(file))) : '';
 const wantPng = !flag('--no-png');
@@ -73,6 +84,24 @@ async function main() {
     const hits = lib.search(file, 30);
     if (!hits.length) { console.log(`no icons match "${file}"`); return 1; }
     for (const i of hits) console.log(`${i.name.padEnd(24)} ${i.source.padEnd(8)} ${i.title}`);
+    return 0;
+  }
+  if (cmd === 'pr') {
+    const base = opt('--base');
+    if (!base) { console.error('draftr pr: --base <ref> is required (e.g. origin/main)'); return 1; }
+    const out = opt('-o', '--out') ?? '.draftr-pr';
+    const r = await prReport({ base, head: opt('--head'), extract: many('--extract'), paths: many('--paths'), out, imageBase: opt('--image-base') });
+    for (const it of r.items) console.error(`${it.name}: ${describeDiff(it.diff)}`);
+    if (r.unchanged.length) console.error(`unchanged: ${r.unchanged.join(', ')}`);
+    console.error(`wrote ${out}/report.md (${r.items.length} changed diagram${r.items.length === 1 ? '' : 's'})`);
+    return 0;
+  }
+  if (cmd === 'diff') {
+    if (!arg2) { console.error('draftr diff: usage: draftr diff <before> <after>'); return 1; }
+    const res = await buildDiff(readGraphFile(file), readGraphFile(arg2), buildOpts);
+    const files = await write(opt('-o', '--out') ?? `${stem}.diff`, res.file, res.svg);
+    console.log(describeDiff(res.diff));
+    console.error(`wrote ${files.join(', ')}`);
     return 0;
   }
   if (cmd === 'extract') {
