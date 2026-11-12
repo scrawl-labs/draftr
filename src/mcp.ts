@@ -52,7 +52,12 @@ const out = z.string().describe('output path, e.g. docs/diagrams/checkout (the e
 const formatArg = z.enum(FORMAT_NAMES as [Format, ...Format[]]).default('excalidraw').describe(`editable output format: ${Object.entries(FORMATS).map(([k, v]) => `${k} = ${v.label}`).join('; ')}`);
 const wantPreview = z.boolean().default(true).describe('return a PNG preview');
 const iconsArg = z.boolean().default(true).describe('draw icons (picked automatically from labels unless a node sets `icon`)');
-const opts = (icons: boolean, format: Format): BuildOptions => ({ icons: icons ? {} : false, format });
+const keepArg = z.string().optional().describe('path of the existing .excalidraw of this diagram, when you are updating one: boxes the user moved there keep their place and only the rest is laid out again. Pass it whenever the output file already exists.');
+const keepAllArg = z.boolean().default(false).describe('with keep: every box that already exists keeps its place (new boxes fit around them), for minimal visual change');
+const opts = (icons: boolean, format: Format, keep?: string, keepAll = false): BuildOptions => ({
+  icons: icons ? {} : false, format,
+  ...(keep ? { keep: { from: JSON.parse(readFileSync(resolve(keep), 'utf8')), mode: keepAll ? 'all' as const : 'moved' as const } } : {}),
+});
 
 server.registerTool('build_diagram', {
   title: 'Build an architecture / flow diagram',
@@ -62,8 +67,8 @@ server.registerTool('build_diagram', {
     'Tips: mark the 1–2 nodes/edges that carry the point of the diagram with highlight:true; use groups for trust/deployment boundaries;',
     'use dashed edges for async; kinds: service, database, queue, external, user, client, storage, decision, note.',
   ].join(' '),
-  inputSchema: { graph: GraphSchema, out, preview: wantPreview, icons: iconsArg, format: formatArg },
-}, guard(async ({ graph, out: o, preview: p, icons, format }) => emit(await build(graph, opts(icons, format)), o, p)));
+  inputSchema: { graph: GraphSchema, out, preview: wantPreview, icons: iconsArg, format: formatArg, keep: keepArg, keep_all: keepAllArg },
+}, guard(async ({ graph, out: o, preview: p, icons, format, keep, keep_all }) => emit(await build(graph, opts(icons, format, keep, keep_all)), o, p)));
 
 server.registerTool('build_sequence', {
   title: 'Build a sequence diagram',
@@ -74,8 +79,8 @@ server.registerTool('build_sequence', {
 server.registerTool('build_from_mermaid', {
   title: 'Build a diagram from Mermaid',
   description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
-  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
-}, guard(async ({ source, out: o, preview: p, icons, format }) => emit(await buildMermaid(source, opts(icons, format)), o, p)));
+  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg, keep: keepArg, keep_all: keepAllArg },
+}, guard(async ({ source, out: o, preview: p, icons, format, keep, keep_all }) => emit(await buildMermaid(source, opts(icons, format, keep, keep_all)), o, p)));
 
 server.registerTool('lint_diagram', {
   title: 'Lint an Excalidraw file',
