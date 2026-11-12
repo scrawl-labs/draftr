@@ -54,6 +54,7 @@ const EXACT_ONLY = ['go', 'box', 'render', 'square', 'linear', 'apple', 'swift',
 // Generic (lucide) icons: name, keywords (English and Korean). First match wins; kinds fall back to KIND_ICONS.
 // Korean keywords match anywhere in the label ("결제서비스"), longest first.
 const GENERIC = [
+  ['database', ['db', 'database', 'datastore', 'rds', 'data warehouse', 'dwh', '데이터베이스', '디비']],
   ['user', ['user', 'users', 'customer', 'shopper', 'actor', 'person', 'buyer', 'admin', 'operator', '사용자', '유저', '고객', '구매자', '회원', '관리자', '운영자']],
   ['app-window', ['web app', 'webapp', 'browser', 'frontend', 'spa', 'dashboard', 'web', '웹', '웹앱', '프론트엔드', '대시보드', '브라우저']],
   ['smartphone', ['mobile', 'ios app', 'android app', 'phone', '모바일', '휴대폰']],

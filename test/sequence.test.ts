@@ -20,7 +20,7 @@ describe('sequence diagrams', () => {
       messages: [{ from: 'a', to: 'c', label: long }, { from: 'b', to: 'b', label: 'self call' }],
     });
     const life = (id: string) => excalidraw.elements.find((e) => e.id === `lifeline:${id}`)!.x;
-    expect(life('c') - life('a')).toBeGreaterThan(measureText(long, 14).width);
+    expect(life('c') - life('a')).toBeGreaterThan(measureText(long, 13, 'nunito').width);
     const self = excalidraw.elements.find((e) => e.id === 'msg:1')!;
     expect(self.points).toHaveLength(4);
   });

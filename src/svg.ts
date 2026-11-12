@@ -3,6 +3,12 @@
 import { measureText } from './measure.js';
 import type { Box, ExElement, ExcalidrawDoc } from './types.js';
 
+// Excalidraw fontFamily ids -> CSS stacks for offline rendering (fonts are not embedded here).
+const FAMILIES: Record<number, string> = {
+  1: "Virgil, Excalifont, 'Comic Sans MS', cursive", 5: "Excalifont, Virgil, 'Comic Sans MS', cursive", 8: "'Comic Shanns', 'Comic Sans MS', cursive",
+  2: "Helvetica, Arial, Pretendard, sans-serif", 9: "'Liberation Sans', Arial, Pretendard, sans-serif",
+  3: "'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace", 6: "Nunito, Pretendard, 'Segoe UI', system-ui, sans-serif", 7: "'Lilita One', Impact, sans-serif",
+};
 const esc = (s: unknown) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export function bbox(elements: ExElement[], pad = 40): Box {
@@ -55,7 +61,7 @@ export function toSvg(d: ExcalidrawDoc): string {
       body.push(renderText(el, el.containerId ? byId[el.containerId] : undefined));
     }
   }
-  const defs = `<defs><style>text{font-family:"Cascadia Code","JetBrains Mono",Menlo,Consolas,"Noto Sans Mono CJK KR","Noto Sans CJK KR",monospace;}</style>${
+  const defs = `<defs>${
     [...markers].map((c) => `<marker id="ah-${c.replace('#', '')}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`).join('')}</defs>`;
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${r(b.x)} ${r(b.y)} ${r(b.w)} ${r(b.h)}" width="${Math.ceil(b.w)}" height="${Math.ceil(b.h)}">`,
@@ -79,5 +85,6 @@ function renderText(el: ExElement, container?: ExElement): string {
   } else if (el.textAlign === 'center') { x = el.x + el.width / 2; anchor = 'middle'; }
   else if (el.textAlign === 'right') { x = el.x + el.width; anchor = 'end'; }
   const spans = lines.map((l, i) => `<tspan x="${r(x)}" y="${r(y0 + i * lh + fs * 0.95)}">${esc(l)}</tspan>`).join('');
-  return `<text font-size="${fs}" fill="${el.strokeColor ?? '#1e1e1e'}" text-anchor="${anchor}">${spans}</text>`;
+  const family = FAMILIES[Number(el.fontFamily)] ?? FAMILIES[6];
+  return `<text font-size="${fs}" font-family="${family}" fill="${el.strokeColor ?? '#1e1e1e'}" text-anchor="${anchor}" opacity="${(el.opacity ?? 100) / 100}">${spans}</text>`;
 }

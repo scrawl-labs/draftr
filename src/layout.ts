@@ -47,7 +47,7 @@ export async function layoutGraph(input: unknown, opts: LayoutOptions = {}): Pro
   const hasLabels = g.edges.some((e) => e.label);
 
   const elkGroups: Record<string, ElkNode> = Object.fromEntries(g.groups.map((gr) => {
-    const t = measureText(gr.label, GROUP_FONT);
+    const t = { width: Math.max(measureText(gr.label, 14, 'nunito').width, measureText(gr.label, 12.5, 'pretendard500').width), height: 14 * 1.35 };
     return [gr.id, {
       id: gr.id,
       children: [],
@@ -91,8 +91,10 @@ export async function layoutGraph(input: unknown, opts: LayoutOptions = {}): Pro
   g.edges.forEach((e, i) => {
     const edge: ElkExtendedEdge = { id: `e${i}`, sources: [e.from], targets: [e.to] };
     if (e.label) {
-      const t = measureText(e.label, LABEL_FONT);
-      edge.labels = [{ id: `e${i}_label`, text: e.label, width: Math.ceil(t.width + 8), height: Math.ceil(t.height + 4) }];
+      // reserve room for the label in both renderers' fonts (Pretendard in SVG, Nunito in Excalidraw)
+      const w = Math.max(measureText(e.label, 12.5, 'pretendard500').width, measureText(e.label, 13, 'nunito').width);
+      const h = e.label.split('\n').length * 13 * 1.35;
+      edge.labels = [{ id: `e${i}_label`, text: e.label, width: Math.ceil(w + 12), height: Math.ceil(h + 4) }];
     }
     root.edges!.push(edge);
   });

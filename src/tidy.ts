@@ -1,6 +1,6 @@
 // Recover the semantic graph from an existing (often hand-written, messy)
 // Excalidraw file, so it can be re-laid out cleanly: `draftr tidy`.
-import { absPoints, classifyShapes, distToSeg, gapBetween } from './lint.js';
+import { absPoints, classifyShapes, DECOR, distToSeg, gapBetween } from './lint.js';
 import { measureText } from './measure.js';
 import { IconLibrary } from './icons/index.js';
 import { KINDS, type GraphInput, type Kind } from './schema.js';
@@ -14,9 +14,10 @@ const slug = (s: string) => s.replace(/[^A-Za-z0-9_\-:.]/g, '_');
 export function extractGraph(d: ExcalidrawDoc): GraphInput {
   const knownIcons = new IconLibrary();
   const els = (d.elements ?? []).filter((e) => !e.isDeleted);
-  const { leaves, groups } = classifyShapes(els.filter((e) => e.customData?.role !== 'label-bg'));
+  const { leaves, groups } = classifyShapes(els.filter((e) => !DECOR.has(String(e.customData?.role))));
   const texts = els.filter((e) => e.type === 'text');
-  const used = new Set<string>();
+  // captions ("Service", "Database") are decoration, not labels
+  const used = new Set<string>(texts.filter((t) => t.customData?.role === 'node-caption').map((t) => t.id));
 
   // Assign each free text to the leaf it overlaps most (handles labels that spill out of their box).
   const overlapArea = (a: Box, b: Box) =>
