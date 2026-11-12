@@ -17,6 +17,8 @@ options:
   -o, --out <prefix>   output path prefix (default: next to the input; tidy adds ".tidy")
   -f, --format <name>  editable output: ${FORMAT_NAMES.join(' | ')} (default: excalidraw)
   --no-png             skip PNG (no Playwright needed)
+  --keep <file>        previous .excalidraw of this diagram: boxes you moved there stay put
+  --keep-all           with --keep: every box that already exists stays put, new ones fit around
   --no-icons           draw no icons
   --icons <dir>        add a folder of your own .svg icons (repeatable; also DRAFTR_ICONS)
   --json               print the lint report as JSON
@@ -25,11 +27,15 @@ options:
 const args = process.argv.slice(2);
 const flag = (...k: string[]) => args.some((a) => k.includes(a));
 const opt = (...k: string[]) => { const i = args.findIndex((a) => k.includes(a)); return i >= 0 ? args[i + 1] : undefined; };
-const [cmd, file] = args.filter((a, i) => !a.startsWith('-') && !['-o', '--out', '--icons', '-f', '--format'].includes(args[i - 1]));
+const [cmd, file] = args.filter((a, i) => !a.startsWith('-') && !['-o', '--out', '--icons', '-f', '--format', '--keep'].includes(args[i - 1]));
 const iconDirs = args.flatMap((a, i) => (a === '--icons' && args[i + 1] ? [args[i + 1]] : []));
 const format = (opt('-f', '--format') ?? 'excalidraw') as Format;
 if (!FORMATS[format]) { console.error(`draftr: unknown format "${format}" (use one of: ${FORMAT_NAMES.join(', ')})`); process.exit(1); }
-const buildOpts: BuildOptions = { icons: flag('--no-icons') ? false : { dirs: iconDirs }, format };
+const keepFile = opt('--keep');
+const buildOpts: BuildOptions = {
+  icons: flag('--no-icons') ? false : { dirs: iconDirs }, format,
+  ...(keepFile ? { keep: { from: JSON.parse(readFileSync(keepFile, 'utf8')), mode: flag('--keep-all') ? 'all' as const : 'moved' as const } } : {}),
+};
 
 if (flag('-h', '--help') || !cmd) { console.log(USAGE); process.exit(cmd || flag('-h', '--help') ? 0 : 1); }
 if (!file && cmd !== 'icons') { console.error(`draftr ${cmd}: missing <file>\n\n${USAGE}`); process.exit(1); }
