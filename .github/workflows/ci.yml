@@ -46,3 +46,4 @@ jobs:
             node dist/cli.js build "$f" -o "out/$(basename "${f%.*}")" --no-png
           done
           node dist/cli.js tidy examples/messy.excalidraw -o out/messy.tidy --no-png
+          node dist/cli.js build examples/checkout.json --format drawio -o out/checkout --no-png
