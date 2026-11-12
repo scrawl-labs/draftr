@@ -20,35 +20,40 @@
       "label": "semantic graph\n(no coordinates)",
       "kind": "note",
       "group": "inputs",
-      "icon": "braces"
+      "icon": "braces",
+      "caption": false
     },
     {
       "id": "mermaid",
       "label": "Mermaid",
       "kind": "note",
       "group": "inputs",
-      "icon": "file-text"
+      "icon": "file-text",
+      "caption": false
     },
     {
       "id": "messy",
       "label": "messy .excalidraw",
       "kind": "storage",
       "group": "inputs",
-      "icon": "file"
+      "icon": "file",
+      "caption": false
     },
     {
       "id": "tidy",
       "label": "tidy",
       "kind": "service",
       "group": "draftr",
-      "icon": "wand-2"
+      "icon": "wand-2",
+      "caption": false
     },
     {
       "id": "layout",
       "label": "ELK auto layout",
       "kind": "service",
       "group": "draftr",
-      "icon": "workflow"
+      "icon": "workflow",
+      "caption": false
     },
     {
       "id": "lint",
@@ -56,28 +61,32 @@
       "kind": "service",
       "group": "draftr",
       "highlight": true,
-      "icon": "list-checks"
+      "icon": "list-checks",
+      "caption": false
     },
     {
       "id": "ex",
       "label": "editable .excalidraw",
       "kind": "client",
       "group": "outputs",
-      "icon": "file"
+      "icon": "file",
+      "caption": false
     },
     {
       "id": "img",
       "label": ".svg / .png preview",
       "kind": "client",
       "group": "outputs",
-      "icon": "image"
+      "icon": "image",
+      "caption": false
     },
     {
       "id": "report",
       "label": "lint report\n(element ids + fixes)",
       "kind": "client",
       "group": "outputs",
-      "icon": "list-checks"
+      "icon": "list-checks",
+      "caption": false
     }
   ],
   "edges": [
