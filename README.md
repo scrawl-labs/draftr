@@ -1,10 +1,16 @@
-# draftr
-
 <p align="center">
-  <img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/draftr.png" width="900"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/brand/banner-dark.png">
+    <img alt="draftr — AI drafts the diagram. You keep thinking." src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/brand/banner.png" width="900">
+  </picture>
 </p>
 
-<p align="center"><strong>AI drafts the diagram. You keep thinking.</strong></p>
+<p align="center">
+  <a href="https://scrawl-labs.github.io/draftr/">Website</a> ·
+  <a href="https://www.npmjs.com/package/@scrawl-labs/draftr">npm</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#output-formats">Formats</a>
+</p>
 
 ## Why I built this
 
@@ -20,7 +26,7 @@ draftr is a CLI and an MCP server that turns a **semantic graph** (nodes, edges,
 
 It also works in the other direction: point it at an existing `.excalidraw` file — hand-drawn, or hand-*written* by a model — and it will tell you exactly what's broken, or recover the graph and re-lay it out cleanly.
 
-The image above was drawn by draftr from [`examples/draftr.json`](https://github.com/scrawl-labs/draftr/blob/main/examples/draftr.json).
+<p align="center"><img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/draftr.png" width="900"/><br/><sub>How draftr works, drawn by draftr from <a href="https://github.com/scrawl-labs/draftr/blob/main/examples/draftr.json"><code>examples/draftr.json</code></a>.</sub></p>
 
 ## Why not just let the model draw it?
 

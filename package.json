@@ -30,7 +30,9 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm clean && pnpm build",
     "icons": "node scripts/build-icons.mjs",
-    "fonts": "node scripts/build-fonts.mjs"
+    "fonts": "node scripts/build-fonts.mjs",
+    "site": "node scripts/build-site.mjs",
+    "brand": "node scripts/build-brand.mjs"
   },
   "keywords": [
     "mcp",
