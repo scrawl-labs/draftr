@@ -47,3 +47,4 @@ jobs:
           done
           node dist/cli.js tidy examples/messy.excalidraw -o out/messy.tidy --no-png
           node dist/cli.js build examples/checkout.json --format drawio -o out/checkout --no-png
+          node dist/cli.js build examples/checkout.json --format tldraw -o out/checkout --no-png

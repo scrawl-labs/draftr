@@ -170,12 +170,17 @@ Pick the editor; the diagram is the same.
 | --- | --- | --- |
 | `excalidraw` (default) | `.excalidraw` | excalidraw.com, Excalidraw+, VS Code, Obsidian |
 | `drawio` | `.drawio` | draw.io / diagrams.net (web, desktop), Confluence and Jira apps, VS Code |
+| `tldraw` | `.tldr` | tldraw.com (File → Open), the tldraw VS Code extension |
 
 Whatever the format, draftr also writes the `.svg` (and `.png` with Playwright). The lint report always checks the Excalidraw rendering.
 
 In draw.io, boxes carry their icon, groups are containers (drag a group, its boxes come along), edges keep draftr's route as waypoints and their labels sit on the line. The text uses Pretendard when draw.io can load it and Helvetica otherwise.
 
 <p align="center"><img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/in-drawio.png" width="900"/><br/><sub>The checkout example as a <code>.drawio</code> file, rendered by draw.io's own viewer.</sub></p>
+
+In tldraw, groups become frames, each box is a tldraw group (box, icon, title, caption) so its parts move together, and edges are elbow arrows bound to the boxes. tldraw only has named colors, so each kind maps to its closest one (blue, orange, violet, green, grey, yellow); borders are tldraw's own weight.
+
+<p align="center"><img src="https://raw.githubusercontent.com/scrawl-labs/draftr/main/.github/assets/in-tldraw.png" width="900"/><br/><sub>The same diagram as a <code>.tldr</code> file, opened with tldraw 5.6.</sub></p>
 
 ## Icons
 
@@ -213,6 +218,7 @@ The same engine, for scripts, CI and pre-commit hooks (`npm i -g @scrawl-labs/dr
 ```bash
 draftr build  examples/checkout.json -o out/checkout   # graph → .excalidraw .svg .png + report
 draftr build  examples/checkout.json --format drawio     # → .drawio for draw.io / Confluence
+draftr build  examples/checkout.json --format tldraw     # → .tldr for tldraw
 draftr build  examples/login.mmd                       # Mermaid works too
 draftr lint   docs/architecture.excalidraw             # exit 1 on errors, --json for machines
 draftr tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
@@ -353,7 +359,7 @@ Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/
 - [ ] PR bot: before/after diagram of the changed flow on every pull request
 - [ ] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
 - [x] draw.io output
-- [ ] tldraw output
+- [x] tldraw output
 - [x] Publish to npm
 - [ ] Icons from Mermaid's `@{ icon: … }` syntax
 
