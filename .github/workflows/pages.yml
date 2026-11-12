@@ -2,12 +2,13 @@ name: Website
 
 # Publishes site/ to GitHub Pages (https://scrawl-labs.github.io/draftr/).
 # One-time setup: Settings → Pages → Build and deployment → Source: GitHub Actions.
-# The page is generated: edit site/src/index.html, then `pnpm build && node scripts/build-site.mjs`.
+# The page is generated from site/src/index.html on every deploy, so the version badge
+# and the icon chips always match the code on main.
 
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths: ['site/**', 'scripts/build-site.mjs', 'scripts/build-brand.mjs', 'package.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -20,16 +21,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node scripts/build-site.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  # A separate job: deploying in the same job as the upload can race the artifact API.
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
       - id: deployment
         uses: actions/deploy-pages@v4
