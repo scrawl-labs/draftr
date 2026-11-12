@@ -1,0 +1,34 @@
+# draftr on its own pull requests: how the module structure of src/ changed, and any example diagram.
+name: Diagram diff
+
+on:
+  pull_request:
+    paths: ['src/**', 'examples/**']
+
+permissions:
+  contents: write # push the preview SVGs to the draftr-previews branch
+  pull-requests: write # comment
+
+concurrency:
+  group: diagram-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: ./
+        with:
+          extract: deps:src
+          paths: examples/**
+          command: node dist/cli.js
