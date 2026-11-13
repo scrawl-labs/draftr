@@ -8,6 +8,7 @@ import type { Graph, Kind } from './schema.js';
 import { kindStyle, THEME, type Hue, type Shape } from './theme.js';
 import type { Pt } from './types.js';
 import { clipToOutline } from './geom.js';
+import { segIntersectsRect } from './lint.js';
 
 export interface DNode {
   id: string;
@@ -146,6 +147,86 @@ export function placeLabels(edges: DEdge[], nodes: Array<{ x: number; y: number;
   }
 }
 
+type Side = 'right' | 'left' | 'bottom' | 'top';
+
+function sideOf(n: DNode, p: Pt): Side | undefined {
+  if (Math.abs(p.x - (n.x + n.w)) < 1) return 'right';
+  if (Math.abs(p.x - n.x) < 1) return 'left';
+  if (Math.abs(p.y - (n.y + n.h)) < 1) return 'bottom';
+  if (Math.abs(p.y - n.y) < 1) return 'top';
+  return undefined;
+}
+
+const tipOf = (n: DNode, side: Side): Pt => ({
+  right: { x: n.x + n.w, y: n.y + n.h / 2 }, left: { x: n.x, y: n.y + n.h / 2 },
+  bottom: { x: n.x + n.w / 2, y: n.y + n.h }, top: { x: n.x + n.w / 2, y: n.y },
+}[side]);
+
+function tidyPath(pts: Pt[]): Pt[] {
+  const out: Pt[] = [];
+  for (const p of pts) {
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.x - p.x) < 0.01 && Math.abs(last.y - p.y) < 0.01) continue;
+    if (out.length >= 2) {
+      const a = out[out.length - 2];
+      if ((Math.abs(a.x - last.x) < 0.01 && Math.abs(last.x - p.x) < 0.01) || (Math.abs(a.y - last.y) < 0.01 && Math.abs(last.y - p.y) < 0.01)) { out[out.length - 1] = p; continue; }
+    }
+    out.push(p);
+  }
+  return out;
+}
+
+/**
+ * ELK spreads the edges of a node along its bounding box side. On a diamond that leaves them starting
+ * part-way down a slanted side, or in mid-air. Like a hand-drawn flowchart, they should leave the tip
+ * as one trunk and split outside: tip -> split point -> each branch.
+ */
+export function diamondTrunks(edges: DEdge[], byId: Record<string, DNode>) {
+  const nodes = Object.values(byId);
+  const clear = (e: DEdge, pts: Pt[]) => pts.slice(1).every((q, i) => nodes.every((n) => n.id === e.from || n.id === e.to || !segIntersectsRect(pts[i], q, n)));
+  for (const end of ['from', 'to'] as const) {
+    const sides = new Map<string, Array<{ e: DEdge; pts: Pt[]; side: Side; node: DNode }>>();
+    for (const e of edges) {
+      const n = byId[e[end]!];
+      if (n?.shape !== 'diamond' || e.points.length < 2) continue;
+      const pts = end === 'from' ? e.points : [...e.points].reverse();
+      const side = sideOf(n, pts[0]);
+      if (!side) continue;
+      // the first segment must leave the side straight out
+      const horiz = side === 'right' || side === 'left';
+      if (horiz ? Math.abs(pts[1].y - pts[0].y) > 0.5 : Math.abs(pts[1].x - pts[0].x) > 0.5) continue;
+      const k = `${n.id}:${side}`;
+      sides.set(k, [...(sides.get(k) ?? []), { e, pts, side, node: n }]);
+    }
+    for (const list of sides.values()) {
+      const { side, node } = list[0];
+      const tip = tipOf(node, side);
+      const horiz = side === 'right' || side === 'left';
+      const out = side === 'right' || side === 'bottom' ? 1 : -1;
+      // split where the first branch bends, but at least a little way out from the tip
+      const firsts = list.map((x) => (horiz ? x.pts[1].x : x.pts[1].y));
+      let split = out > 0 ? Math.min(...firsts) : Math.max(...firsts);
+      const min = (horiz ? tip.x : tip.y) + out * 16;
+      if (out * (split - min) < 0) split = min;
+      for (const { e, pts } of list) {
+        const p0 = pts[0];
+        const aligned = horiz ? Math.abs(p0.y - tip.y) < 0.5 : Math.abs(p0.x - tip.x) < 0.5;
+        // a branch that turns right after leaving: make the turn on the trunk line, so there is no jog
+        const turns = pts.length >= 3 && (horiz ? Math.abs(pts[1].x - pts[2].x) < 0.5 : Math.abs(pts[1].y - pts[2].y) < 0.5);
+        const rest = turns ? pts.slice(2) : pts.slice(1);
+        const along = turns ? pts[2] : p0;
+        const path = aligned && !turns ? [tip, ...pts.slice(1)]
+          : horiz ? [tip, { x: split, y: tip.y }, { x: split, y: along.y }, ...rest]
+            : [tip, { x: tip.x, y: split }, { x: along.x, y: split }, ...rest];
+        const fixed = tidyPath(path);
+        if (!clear(e, fixed)) continue; // the trunk would cut through another box: keep ELK's route
+        e.points = end === 'from' ? fixed : fixed.reverse();
+        if (e.labelAt) e.labelAt = pointOnPolyline(e.points, e.labelAt);
+      }
+    }
+  }
+}
+
 export async function graphModel(input: unknown, opts: ModelOptions = {}): Promise<DiagramModel> {
   const lib = opts.icons === false ? false : opts.icons ?? new IconLibrary();
   const scene = await layoutGraph(input, {
@@ -164,7 +245,8 @@ export async function graphModel(input: unknown, opts: ModelOptions = {}): Promi
       label: e.label, labelAt: at, labelColor: e.highlight && hue ? hue.solid : T.edge,
     };
   });
-  // diamonds: move endpoints from the bounding box onto the diamond's edges (every format draws a real diamond)
+  // diamonds: edges on one side share a trunk from the tip; any other endpoint moves onto the outline
+  diamondTrunks(edges, byId);
   for (const e of edges) {
     const s = byId[e.from!], d = byId[e.to!], p = e.points;
     if (s?.shape === 'diamond') p[0] = clipToOutline(p[1], p[0], 'diamond', s);
