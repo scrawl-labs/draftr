@@ -9,6 +9,7 @@ import { toSvg } from './svg.js';
 import { lint, type LintReport } from './lint.js';
 import { parseMermaid } from './mermaid.js';
 import { extractGraph } from './tidy.js';
+import { traceToSequence, type TraceOptions } from './traces.js';
 import { applyPins, previousFromExcalidraw, type KeepMode } from './incremental.js';
 import type { DiagramInput, GraphInput } from './schema.js';
 import { diffGraphs, diffModel, type GraphDiff } from './diff.js';
@@ -23,6 +24,7 @@ export type { GraphInput, SequenceInput, DiagramInput, Kind } from './schema.js'
 export type { ExcalidrawDoc, ExElement, Scene } from './types.js';
 export type { DiagramModel, DNode, DEdge, DGroup } from './model.js';
 export { THEME } from './theme.js';
+export { traceToSequence, timelineToSequence, readSpans, type TraceOptions, type TraceResult, type Span } from './traces.js';
 export { diffGraphs, diffModel, describeDiff, readGraph, readGraphFile, isDiagramSource, DIFF_HUES, type GraphDiff, type Change } from './diff.js';
 export { prReport, globToRegExp, MARKER as PR_MARKER, type PrOptions, type PrReport, type PrItem } from './pr.js';
 export { extract, extractDeps, extractRoutes, extractSchema, findRoutes, findSchema, EXTRACTORS, type ExtractorName, type ExtractOptions, type Extracted, type Route, type Table, type ForeignKey } from './extract/index.js';
@@ -103,6 +105,12 @@ export async function buildMermaid(source: string, opts: BuildOptions = {}): Pro
 export async function buildDiff(before: GraphInput | undefined, after: GraphInput | undefined, opts: BuildOptions = {}): Promise<BuildResult & { diff: GraphDiff }> {
   const diff = diffGraphs(before, after);
   return { ...finish(await diffModel(diff, { icons: iconLib(opts.icons) }), opts.format), diff };
+}
+
+/** A trace (OTLP, Jaeger, Zipkin) or a speedwagon incident timeline -> sequence diagram. */
+export async function buildTrace(input: unknown, opts: BuildOptions & TraceOptions = {}): Promise<BuildResult & { notes: string[] }> {
+  const { sequence, notes } = traceToSequence(input, opts);
+  return { ...(await build(sequence, opts)), notes };
 }
 
 /** Re-lay out an existing Excalidraw file; returns the clean result plus the lint report of the original. */

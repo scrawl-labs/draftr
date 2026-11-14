@@ -1,0 +1,72 @@
+{
+  "timeRange": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "totalEvents": 5,
+  "summary": {
+    "critical": 2,
+    "warning": 1,
+    "resolved": 1,
+    "info": 1
+  },
+  "timeline": [
+    {
+      "time": "2026-11-12T02:58:00.000Z",
+      "type": "annotation",
+      "severity": "info",
+      "title": "deploy checkout v2.14",
+      "detail": null,
+      "dashboard": "shop",
+      "tags": [
+        "service=checkout",
+        "deploy"
+      ]
+    },
+    {
+      "time": "2026-11-12T03:04:00.000Z",
+      "type": "alert_state_change",
+      "severity": "warning",
+      "title": "CheckoutLatencyHigh",
+      "detail": "Normal → Pending",
+      "dashboard": "shop",
+      "tags": [
+        "service=checkout"
+      ]
+    },
+    {
+      "time": "2026-11-12T03:09:00.000Z",
+      "type": "alert_state_change",
+      "severity": "critical",
+      "title": "CheckoutLatencyHigh",
+      "detail": "Pending → Alerting",
+      "dashboard": "shop",
+      "tags": [
+        "service=checkout"
+      ]
+    },
+    {
+      "time": "2026-11-12T03:11:00.000Z",
+      "type": "active_alert",
+      "severity": "critical",
+      "title": "PaymentErrors5xx",
+      "detail": "12.4",
+      "dashboard": null,
+      "tags": [
+        "service=payment",
+        "severity=page"
+      ]
+    },
+    {
+      "time": "2026-11-12T03:40:00.000Z",
+      "type": "alert_state_change",
+      "severity": "resolved",
+      "title": "CheckoutLatencyHigh",
+      "detail": "Alerting → Normal",
+      "dashboard": "shop",
+      "tags": [
+        "service=checkout"
+      ]
+    }
+  ]
+}
