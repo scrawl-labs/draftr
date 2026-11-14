@@ -57,3 +57,26 @@ describe('graph layout', () => {
     expect(clipToOutline({ x: -5, y: 5 }, { x: 0, y: 5 }, 'rectangle', box)).toEqual({ x: 0, y: 5 });
   });
 });
+
+describe('diamond fan-out', () => {
+  it('edges leaving one side of a diamond share a trunk from its tip, then split', async () => {
+    for (const direction of ['RIGHT', 'DOWN'] as const) {
+      const { model, report } = await build({
+        direction,
+        nodes: [{ id: 'in', label: 'Request' }, { id: 'd', label: 'Keep it?', kind: 'decision' }, { id: 'a', label: 'Delete now' }, { id: 'b', label: 'Drop the key' }, { id: 'c', label: 'Queue it', kind: 'queue' }, { id: 'e', label: 'Other', kind: 'note' }],
+        edges: [{ from: 'in', to: 'd' }, { from: 'd', to: 'a', label: 'now' }, { from: 'd', to: 'b' }, { from: 'd', to: 'c', label: 'keep' }, { from: 'd', to: 'e', label: 'other' }],
+      });
+      expect(report.issues.filter((i) => i.severity === 'error'), direction).toEqual([]);
+      const d = model.nodes.find((n) => n.id === 'd')!;
+      const tip = direction === 'RIGHT' ? { x: d.x + d.w, y: d.y + d.h / 2 } : { x: d.x + d.w / 2, y: d.y + d.h };
+      const out = model.edges.filter((e) => e.from === 'd');
+      for (const e of out) {
+        expect(e.points[0].x, `${direction} ${e.to}`).toBeCloseTo(tip.x, 1);
+        expect(e.points[0].y, `${direction} ${e.to}`).toBeCloseTo(tip.y, 1);
+      }
+      // every branch splits off at the same distance from the tip
+      const splits = new Set(out.filter((e) => e.points.length > 2).map((e) => Math.round(direction === 'RIGHT' ? e.points[1].x : e.points[1].y)));
+      expect(splits.size, direction).toBe(1);
+    }
+  });
+});
