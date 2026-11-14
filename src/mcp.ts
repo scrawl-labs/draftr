@@ -73,7 +73,7 @@ server.registerTool('build_sequence', {
 
 server.registerTool('build_from_mermaid', {
   title: 'Build a diagram from Mermaid',
-  description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
+  description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram, including v11 `@{ icon, shape, label }` node metadata) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
   inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
 }, guard(async ({ source, out: o, preview: p, icons, format }) => emit(await buildMermaid(source, opts(icons, format)), o, p)));
 
