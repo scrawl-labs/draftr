@@ -160,6 +160,18 @@ section + section { border-top: 1px solid var(--line); }
 .pair figure { margin: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
 .pair figure img { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: #ffffff; }
 .pair figcaption { font-size: 12px; color: var(--faint); padding: 8px 10px; border-top: 1px solid var(--line); background: var(--surface); }
+.features { margin-top: 48px; display: grid; gap: 20px; }
+.feature { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 28px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: center; }
+.feature .text { display: grid; gap: 12px; align-content: start; }
+.feature p { color: var(--muted); font-size: 15.5px; }
+.feature .thumb, .feature .pair { margin-top: 0; }
+.pair.stack { grid-template-columns: 1fr; }
+.pair.stack figure img { aspect-ratio: auto; }
+@media (max-width: 860px) { .feature { grid-template-columns: minmax(0, 1fr); padding: 22px; } }
+.snip { margin: 2px 0 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; line-height: 1.6; overflow-x: auto; white-space: pre; }
+.new-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--accent-ink); color: var(--bg); font: 600 11px var(--body); letter-spacing: .04em; vertical-align: 2px; }
+.thumb img { width: 100%; display: block; }
+.feature a img { cursor: zoom-in; }
 .thumb { background: #ffffff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 6px; }
 @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 
@@ -193,6 +205,7 @@ footer .right { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
   .cell { padding: 20px; }
   .pair { grid-template-columns: minmax(0, 1fr); }
   .cmd pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }
+  .snip { white-space: pre-wrap; overflow-wrap: anywhere; }
   .lint { font-size: 11.5px; }
   .tab { padding: 8px 12px; }
   footer .wrap { flex-direction: column; align-items: flex-start; gap: 14px; }
@@ -210,10 +223,11 @@ footer .right { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
       <a href="#how">How it works</a>
       <a href="#editors">Editors</a>
       <a href="#details">Lint &amp; icons</a>
+      <a href="#new">New in 0.3</a>
       <a href="#install">Install</a>
       <a href="https://github.com/scrawl-labs/draftr">GitHub</a>
     </nav>
-    <a class="ver" href="https://www.npmjs.com/package/@scrawl-labs/draftr">v0.2.1</a>
+    <a class="ver" href="https://www.npmjs.com/package/@scrawl-labs/draftr">v0.3.0</a>
   </div>
 </header>
 
@@ -347,6 +361,54 @@ footer .right { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
     </div>
   </section>
 
+  <section id="new">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">New in 0.3<span class="new-tag">NEW</span></p>
+        <h2>Start from the code. Keep your edits.</h2>
+        <p>Draw what the code and the traces say, update a diagram without undoing your hand edits, and see on every pull request what changed.</p>
+      </div>
+      <div class="features">
+        <div class="feature">
+          <div class="text">
+          <h3>Keep your edits</h3>
+          <p>You dragged Postgres up to tell the story better. Then the system grew a cache. Rebuild with <code>--keep</code> and your boxes stay where you put them; only the new parts get laid out, around them.</p>
+          <pre class="snip mono"><span class="t-cmd">draftr</span> <span class="t-sub">build</span> <span class="t-path">arch.json</span> <span class="t-flag">--keep</span> <span class="t-path">docs/arch.excalidraw</span></pre>
+          </div>
+          <div class="pair">
+            <figure><a href="assets/keep-before.svg" target="_blank" rel="noopener"><img src="assets/keep-before.svg" alt="A small diagram after a person moved the Postgres box up" width="300" loading="lazy"></a><figcaption>Your edit</figcaption></figure>
+            <figure><a href="assets/keep-after.svg" target="_blank" rel="noopener"><img src="assets/keep-after.svg" alt="Rebuilt with a new Redis box; Postgres stays where it was moved" width="300" loading="lazy"></a><figcaption>After --keep, with Redis added</figcaption></figure>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="text">
+          <h3>Diagrams from the code</h3>
+          <p>Module dependencies from JS/TS, Python and Go imports, HTTP routes from Express to FastAPI, tables and foreign keys from SQL, Prisma, Django or Rails. Edges already implied by others are left out, and import cycles are highlighted.</p>
+          <pre class="snip mono"><span class="t-cmd">draftr</span> <span class="t-sub">extract</span> deps <span class="t-path">src/</span> <span class="t-flag">--external</span></pre>
+          </div>
+          <div class="thumb"><a href="assets/extract-deps.svg" target="_blank" rel="noopener"><img src="assets/extract-deps.svg" alt="A module dependency diagram extracted from a small Express app, with an import cycle highlighted" width="520" loading="lazy"></a></div>
+        </div>
+        <div class="feature">
+          <div class="text">
+          <h3>Traces become sequence diagrams</h3>
+          <p>OpenTelemetry, Jaeger or Zipkin in; what actually happened out, with status and duration on every reply. Ten identical queries collapse into <code>×10</code>, so an N+1 shows at a glance. speedwagon incident timelines work too.</p>
+          <pre class="snip mono"><span class="t-cmd">draftr</span> <span class="t-sub">trace</span> <span class="t-path">traces.json</span></pre>
+          </div>
+          <div class="thumb"><a href="assets/trace.svg" target="_blank" rel="noopener"><img src="assets/trace.svg" alt="A checkout request traced across web, checkout, Postgres, payment, Kafka and email" width="520" loading="lazy"></a></div>
+        </div>
+        <div class="feature">
+          <div class="text">
+          <h3>What a pull request changed</h3>
+          <p>One diagram, not two to compare by eye: added in green, removed in red, changed in amber, the rest steps back. The GitHub Action posts it on every pull request and updates it on every push.</p>
+          <pre class="snip mono"><span class="k">uses</span><span class="t-p">:</span> <span class="s">scrawl-labs/draftr@main</span>
+<span class="k">with</span><span class="t-p">:</span> <span class="t-p">{</span> <span class="k">extract</span><span class="t-p">:</span> <span class="s">deps:src</span> <span class="t-p">}</span></pre>
+          </div>
+          <div class="thumb"><a href="assets/diff.svg" target="_blank" rel="noopener"><img src="assets/diff.svg" alt="The checkout diagram diffed: a fraud check and SMS worker added, the email worker removed, MongoDB renamed to Postgres" width="520" loading="lazy"></a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="install">
     <div class="wrap">
       <div class="sec-head">
@@ -361,7 +423,8 @@ footer .right { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
   <span class="k">"args"</span><span class="t-p">: [</span><span class="s">"-y"</span><span class="t-p">,</span> <span class="s">"-p"</span><span class="t-p">,</span> <span class="s">"@scrawl-labs/draftr"</span><span class="t-p">,</span> <span class="s">"-p"</span><span class="t-p">,</span> <span class="s">"playwright"</span><span class="t-p">,</span> <span class="s">"draftr-mcp"</span><span class="t-p">]</span>
 <span class="t-p">} } }</span></pre></div>
         <div class="cmd"><div class="what">CLI<small>scripts and CI</small></div><pre><span class="t-cmd">npx</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-sub">build</span> <span class="t-path">arch.json</span> <span class="t-flag">--format</span> drawio
-<span class="t-cmd">npx</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-sub">lint</span> <span class="t-path">docs/architecture.excalidraw</span></pre></div>
+<span class="t-cmd">npx</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-sub">lint</span> <span class="t-path">docs/architecture.excalidraw</span>
+<span class="t-cmd">npx</span> <span class="t-pkg">@scrawl-labs/draftr</span> <span class="t-sub">extract</span> deps <span class="t-path">src/</span></pre></div>
       </div>
     </div>
   </section>
