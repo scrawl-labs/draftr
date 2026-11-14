@@ -1,0 +1,120 @@
+name: draftr diagram diff
+description: Comment a before/after diagram of what a pull request changed in your architecture diagrams, module structure, routes or schema.
+author: scrawl-labs
+branding:
+  icon: git-pull-request
+  color: blue
+
+inputs:
+  extract:
+    description: |
+      Graphs to extract from the code on both commits and diff, one per line as kind:path.
+      Kinds: deps (module dependencies), routes (HTTP routes), schema (database schema). Example: "deps:src".
+    required: false
+    default: ''
+  paths:
+    description: Only diff diagram files (graph .json, .mmd, .excalidraw) matching these globs, one per line. Default all.
+    required: false
+    default: ''
+  previews-branch:
+    description: Branch the SVGs are pushed to so the comment can show them.
+    required: false
+    default: draftr-previews
+  version:
+    description: draftr version from npm.
+    required: false
+    default: latest
+  command:
+    description: Command that runs draftr (overrides version), e.g. "node dist/cli.js" in the draftr repo itself.
+    required: false
+    default: ''
+  github-token:
+    description: Token used to push the previews and comment. Needs contents:write and pull-requests:write.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  changed:
+    description: Number of diagrams that changed.
+    value: ${{ steps.report.outputs.changed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Draw the diagrams
+      id: report
+      shell: bash
+      env:
+        EXTRACT: ${{ inputs.extract }}
+        PATHS: ${{ inputs.paths }}
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PR: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+        BRANCH: ${{ inputs.previews-branch }}
+        VERSION: ${{ inputs.version }}
+        COMMAND: ${{ inputs.command }}
+      run: |
+        set -euo pipefail
+        if [ -z "${PR:-}" ]; then echo "::warning::draftr diagram diff only runs on pull_request events"; echo "changed=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+        git fetch --no-tags --quiet origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || git fetch --no-tags --quiet origin "$BASE_REF"
+        args=(pr --base "$BASE_SHA" --head "$HEAD_SHA" --out "$RUNNER_TEMP/draftr-pr"
+              --image-base "https://github.com/$REPO/blob/$BRANCH/pr-$PR/${HEAD_SHA:0:12}/{file}?raw=true")
+        while IFS= read -r line; do line="$(echo "$line" | xargs)"; [ -n "$line" ] && args+=(--extract "$line"); done <<< "$EXTRACT"
+        while IFS= read -r line; do line="$(echo "$line" | xargs)"; [ -n "$line" ] && args+=(--paths "$line"); done <<< "$PATHS"
+        if [ -n "$COMMAND" ]; then $COMMAND "${args[@]}"; else npx -y "@scrawl-labs/draftr@$VERSION" "${args[@]}"; fi
+        n=$(ls "$RUNNER_TEMP/draftr-pr"/*.diff.svg 2>/dev/null | wc -l | tr -d ' ')
+        echo "changed=$n" >> "$GITHUB_OUTPUT"
+
+    - name: Publish the previews
+      id: publish
+      if: steps.report.outputs.changed != '0'
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        BRANCH: ${{ inputs.previews-branch }}
+        PR: ${{ github.event.pull_request.number }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -euo pipefail
+        dir="$(mktemp -d)"; cd "$dir"
+        git init -q
+        git remote add origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+        if git fetch -q --depth 1 origin "$BRANCH" 2>/dev/null; then git checkout -q -b "$BRANCH" FETCH_HEAD; else git checkout -q --orphan "$BRANCH"; fi
+        dest="pr-$PR/${HEAD_SHA:0:12}"
+        mkdir -p "$dest"
+        cp "$RUNNER_TEMP/draftr-pr"/*.svg "$dest/"
+        git add "$dest"
+        git -c user.name="draftr-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "previews for #$PR at ${HEAD_SHA:0:12}"
+        for i in 1 2 3; do
+          if git push -q origin "HEAD:$BRANCH"; then echo "ok=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git fetch -q --depth 1 origin "$BRANCH" && git rebase -q FETCH_HEAD || true
+          sleep $((i * 2))
+        done
+        echo "::warning::could not push previews to $BRANCH (fork PR or read-only token); the report is in the job summary"
+        echo "ok=0" >> "$GITHUB_OUTPUT"
+
+    - name: Comment on the pull request
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        CHANGED: ${{ steps.report.outputs.changed }}
+      run: |
+        set -euo pipefail
+        [ -z "${PR:-}" ] && exit 0
+        report="$RUNNER_TEMP/draftr-pr/report.md"
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        marker='<!-- draftr-pr-bot -->'
+        existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -n 1 || true)
+        # no diagram changed and nothing posted before: stay quiet
+        if [ "$CHANGED" = "0" ] && [ -z "$existing" ]; then exit 0; fi
+        body=$(jq -Rs '{body: .}' < "$report")
+        if [ -n "$existing" ]; then
+          echo "$body" | gh api -X PATCH "repos/$REPO/issues/comments/$existing" --input - > /dev/null || echo "::warning::could not update the comment"
+        else
+          echo "$body" | gh api -X POST "repos/$REPO/issues/$PR/comments" --input - > /dev/null || echo "::warning::could not comment (fork PR or read-only token)"
+        fi

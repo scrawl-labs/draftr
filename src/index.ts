@@ -10,7 +10,8 @@ import { lint, type LintReport } from './lint.js';
 import { parseMermaid } from './mermaid.js';
 import { extractGraph } from './tidy.js';
 import { applyPins, previousFromExcalidraw, type KeepMode } from './incremental.js';
-import type { DiagramInput } from './schema.js';
+import type { DiagramInput, GraphInput } from './schema.js';
+import { diffGraphs, diffModel, type GraphDiff } from './diff.js';
 import { IconLibrary, type IconOptions } from './icons/index.js';
 import type { ExcalidrawDoc } from './types.js';
 
@@ -22,6 +23,8 @@ export type { GraphInput, SequenceInput, DiagramInput, Kind } from './schema.js'
 export type { ExcalidrawDoc, ExElement, Scene } from './types.js';
 export type { DiagramModel, DNode, DEdge, DGroup } from './model.js';
 export { THEME } from './theme.js';
+export { diffGraphs, diffModel, describeDiff, readGraph, readGraphFile, isDiagramSource, DIFF_HUES, type GraphDiff, type Change } from './diff.js';
+export { prReport, globToRegExp, MARKER as PR_MARKER, type PrOptions, type PrReport, type PrItem } from './pr.js';
 export { extract, extractDeps, extractRoutes, extractSchema, findRoutes, findSchema, EXTRACTORS, type ExtractorName, type ExtractOptions, type Extracted, type Route, type Table, type ForeignKey } from './extract/index.js';
 export { applyPins, pinsFromExcalidraw, previousFromExcalidraw, routeEdges, type KeepMode, type Pin, type Previous } from './incremental.js';
 export { svgToPng } from './render.js';
@@ -94,6 +97,12 @@ export async function build(input: DiagramInput | Record<string, unknown>, opts:
 export async function buildMermaid(source: string, opts: BuildOptions = {}): Promise<BuildResult> {
   const icons = iconLib(opts.icons);
   return build(parseMermaid(source, { icons }), { ...opts, icons });
+}
+
+/** Two versions of a graph -> one diagram colored by what changed. */
+export async function buildDiff(before: GraphInput | undefined, after: GraphInput | undefined, opts: BuildOptions = {}): Promise<BuildResult & { diff: GraphDiff }> {
+  const diff = diffGraphs(before, after);
+  return { ...finish(await diffModel(diff, { icons: iconLib(opts.icons) }), opts.format), diff };
 }
 
 /** Re-lay out an existing Excalidraw file; returns the clean result plus the lint report of the original. */
