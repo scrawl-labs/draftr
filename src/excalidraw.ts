@@ -154,7 +154,7 @@ export function toExcalidraw(model: DiagramModel): ExcalidrawDoc {
       strokeWidth: n.highlight ? 2 : 1, strokeStyle: n.dashed ? 'dashed' : 'solid',
       roundness: type === 'rectangle' ? { type: 3 } : { type: 2 },
       groupIds: grp, boundElements: bound[id],
-      customData: { role: n.role === 'participant' ? 'participant' : 'node', ...(n.role === 'participant' ? { participant: n.id } : { nodeId: n.id }), kind: n.kind, ...(n.icon ? { icon: n.icon.name } : {}) },
+      customData: { role: n.role === 'participant' ? 'participant' : 'node', ...(n.role === 'participant' ? { participant: n.id } : { nodeId: n.id, placed: { x: n.x, y: n.y } }), kind: n.kind, ...(n.icon ? { icon: n.icon.name } : {}) },
     }));
     const ink = n.highlight ? T.white : T.ink;
     if (n.shape === 'diamond') {

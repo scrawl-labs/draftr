@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { build, buildMermaid, buildTrace, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
+import { build, buildDiff, buildMermaid, buildTrace, describeDiff, extract, EXTRACTORS, readGraphFile, FORMAT_NAMES, FORMATS, IconLibrary, lint, svgToPng, tidy, toSvg, GraphSchema, SequenceSchema, type BuildOptions, type BuildResult, type Format, type LintReport } from './index.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -52,7 +52,12 @@ const out = z.string().describe('output path, e.g. docs/diagrams/checkout (the e
 const formatArg = z.enum(FORMAT_NAMES as [Format, ...Format[]]).default('excalidraw').describe(`editable output format: ${Object.entries(FORMATS).map(([k, v]) => `${k} = ${v.label}`).join('; ')}`);
 const wantPreview = z.boolean().default(true).describe('return a PNG preview');
 const iconsArg = z.boolean().default(true).describe('draw icons (picked automatically from labels unless a node sets `icon`)');
-const opts = (icons: boolean, format: Format): BuildOptions => ({ icons: icons ? {} : false, format });
+const keepArg = z.string().optional().describe('path of the existing .excalidraw of this diagram, when you are updating one: boxes the user moved there keep their place and only the rest is laid out again. Pass it whenever the output file already exists.');
+const keepAllArg = z.boolean().default(false).describe('with keep: every box that already exists keeps its place (new boxes fit around them), for minimal visual change');
+const opts = (icons: boolean, format: Format, keep?: string, keepAll = false): BuildOptions => ({
+  icons: icons ? {} : false, format,
+  ...(keep ? { keep: { from: JSON.parse(readFileSync(resolve(keep), 'utf8')), mode: keepAll ? 'all' as const : 'moved' as const } } : {}),
+});
 
 server.registerTool('build_diagram', {
   title: 'Build an architecture / flow diagram',
@@ -62,8 +67,8 @@ server.registerTool('build_diagram', {
     'Tips: mark the 1–2 nodes/edges that carry the point of the diagram with highlight:true; use groups for trust/deployment boundaries;',
     'use dashed edges for async; kinds: service, database, queue, external, user, client, storage, decision, note.',
   ].join(' '),
-  inputSchema: { graph: GraphSchema, out, preview: wantPreview, icons: iconsArg, format: formatArg },
-}, guard(async ({ graph, out: o, preview: p, icons, format }) => emit(await build(graph, opts(icons, format)), o, p)));
+  inputSchema: { graph: GraphSchema, out, preview: wantPreview, icons: iconsArg, format: formatArg, keep: keepArg, keep_all: keepAllArg },
+}, guard(async ({ graph, out: o, preview: p, icons, format, keep, keep_all }) => emit(await build(graph, opts(icons, format, keep, keep_all)), o, p)));
 
 server.registerTool('build_sequence', {
   title: 'Build a sequence diagram',
@@ -73,9 +78,43 @@ server.registerTool('build_sequence', {
 
 server.registerTool('build_from_mermaid', {
   title: 'Build a diagram from Mermaid',
-  description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
-  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
-}, guard(async ({ source, out: o, preview: p, icons, format }) => emit(await buildMermaid(source, opts(icons, format)), o, p)));
+  description: 'Convert Mermaid source (flowchart/graph or sequenceDiagram, including v11 `@{ icon, shape, label }` node metadata) into a laid-out, editable diagram (see format) with lint report and preview. Useful for upgrading existing Mermaid docs.',
+  inputSchema: { source: z.string().describe('Mermaid source text'), out, preview: wantPreview, icons: iconsArg, format: formatArg, keep: keepArg, keep_all: keepAllArg },
+}, guard(async ({ source, out: o, preview: p, icons, format, keep, keep_all }) => emit(await buildMermaid(source, opts(icons, format, keep, keep_all)), o, p)));
+
+server.registerTool('extract_graph', {
+  title: 'Extract a graph from code',
+  description: [
+    'Read a codebase and return a draftr graph, so the diagram starts from what the code actually does:',
+    Object.entries(EXTRACTORS).map(([k, v]) => `${k} = ${v}`).join('; ') + '.',
+    'Returns the graph JSON. Usually refine it (better labels, groups, kinds, highlight the 1–2 things that matter, drop noise) and pass it to build_diagram;',
+    'or give `out` to build it as is. deps folds files into directories when there are too many, leaves out edges implied by others, and highlights import cycles.',
+  ].join(' '),
+  inputSchema: {
+    kind: z.enum(Object.keys(EXTRACTORS) as [keyof typeof EXTRACTORS, ...Array<keyof typeof EXTRACTORS>]),
+    path: z.string().describe('directory (or file) to read'),
+    by: z.enum(['auto', 'file', 'dir']).default('auto').describe('deps: one box per file or per directory'),
+    depth: z.number().int().min(1).optional().describe('deps: directory depth to fold to'),
+    external: z.boolean().default(false).describe('deps: also draw the most used third-party packages'),
+    out: out.optional().describe('build the diagram as is, written here (omit to just get the graph back)'),
+    preview: wantPreview, icons: iconsArg, format: formatArg,
+  },
+}, guard(async ({ kind, path, by, depth, external, out: o, preview: p, icons, format }) => {
+  const { graph, notes } = extract(kind, resolve(path), { by, depth, external });
+  const text = `${notes.join('\n')}\n\n${JSON.stringify(graph)}`;
+  if (!o) return { content: [{ type: 'text', text }] };
+  const res = await emit(await build(graph, opts(icons, format)), o, p);
+  return { content: [{ type: 'text', text }, ...res.content] };
+}));
+
+server.registerTool('diff_diagrams', {
+  title: 'Diff two versions of a diagram',
+  description: 'Draw what changed between two versions of a graph (draftr .json, Mermaid flowchart or .excalidraw): one diagram with added boxes and arrows in green, removed ones in red and dashed, changed ones in amber, the rest in grey. Use it to review a change to an architecture, or to show what a refactor did to the module structure (pair with extract_graph on two checkouts).',
+  inputSchema: { before: z.string().describe('path of the old version'), after: z.string().describe('path of the new version'), out, preview: wantPreview, icons: iconsArg, format: formatArg },
+}, guard(async ({ before, after, out: o, preview: p, icons, format }) => {
+  const res = await buildDiff(readGraphFile(resolve(before)), readGraphFile(resolve(after)), opts(icons, format));
+  return emit(res, o, p, `${describeDiff(res.diff)}\n`);
+}));
 
 server.registerTool('build_from_trace', {
   title: 'Build a sequence diagram from a trace',
