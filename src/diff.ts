@@ -37,7 +37,7 @@ const EMPTY: GraphInput = { nodes: [] as unknown as GraphInput['nodes'] };
 export function readGraph(text: string, name: string): GraphInput {
   const ext = extname(name).toLowerCase();
   if (ext === '.mmd' || ext === '.mermaid') {
-    const g = parseMermaid(text);
+    const g = parseMermaid(text, { icons: false });
     if ((g as { type?: string }).type === 'sequence') throw new Error(`${name}: sequence diagrams can't be diffed yet`);
     return g as GraphInput;
   }

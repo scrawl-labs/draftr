@@ -244,6 +244,7 @@ draftr build  examples/checkout.json -o out/checkout   # graph → .excalidraw .
 draftr build  examples/checkout.json --format drawio     # → .drawio for draw.io / Confluence
 draftr build  examples/checkout.json --format tldraw     # → .tldr for tldraw
 draftr build  examples/login.mmd                       # Mermaid works too
+draftr build  arch.json --keep docs/arch.excalidraw    # update a diagram you edited by hand
 draftr lint   docs/architecture.excalidraw             # exit 1 on errors, --json for machines
 draftr tidy   docs/architecture.excalidraw             # → architecture.tidy.excalidraw
 draftr render docs/architecture.excalidraw --no-png    # offline SVG
@@ -255,7 +256,19 @@ draftr extract routes . --format drawio
 draftr extract schema db/migrations
 ```
 
-Flags: `-o <prefix>`, `-f`/`--format <name>`, `--no-png`, `--json`, `--no-icons`, `--icons <dir>`.
+Flags: `-o <prefix>`, `-f`/`--format <name>`, `--keep <file>`, `--keep-all`, `--no-png`, `--json`, `--no-icons`, `--icons <dir>`.
+
+### Update a diagram without losing your edits
+
+You laid out the diagram, then dragged a few boxes in Excalidraw to tell the story better. Now the system grew a service. Rebuilding from scratch would throw your arrangement away, so pass the edited file with `--keep`:
+
+```bash
+draftr build arch.json --keep docs/arch.excalidraw -o docs/arch
+```
+
+draftr records where it put every box (`customData.placed`). A box that sits somewhere else was moved by you: it stays exactly there. Everything else is laid out again, nudged so nothing lands on your boxes, groups are refit around their members, and arrows whose ends moved are re-routed around the boxes (orthogonal, avoiding crossings where it can). A box you drag out of its group takes the rest of the group with it.
+
+`--keep-all` keeps every box that already exists, not only the ones you moved, so an update only adds: new boxes fit in around the old ones and the old arrows stay as they were. Use it when you want the smallest visual diff. Files from before draftr recorded positions are treated the same way. Agents get the same thing through the `keep` / `keep_all` arguments of `build_diagram` and `build_from_mermaid`.
 
 `extract` writes the graph as `.json` next to the diagram, so you can edit it and `draftr build` it again. Its flags: `--by file|dir`, `--depth <n>`, `--external` (draw third-party packages), `--tests`, `--all-edges`, `--graph-only`.
 
@@ -351,6 +364,17 @@ Full example: [`examples/checkout.json`](https://github.com/scrawl-labs/draftr/b
 
 `flowchart` / `graph` (all directions; `[]` `()` `([])` `[()]` `(())` `{}` `[//]` shapes; `-->` `---` `-.->` `==>`; `|label|` and `-- label -->`; chains; `A & B --> C`; nested `subgraph`) and `sequenceDiagram` (`participant` / `actor ... as ...`, `->>` `-->>` `->` `-->` `-x` `-)`, `autonumber`). Styling lines are ignored — draftr has its own theme.
 
+Mermaid v11 node metadata works too. `icon` packs map onto draftr's icons (`logos:postgresql` → postgresql, `fa:envelope` → mail; an icon draftr doesn't have falls back to the automatic pick), and `shape` names set the kind (`cyl` → database, `h-cyl` → queue, `diam` → decision, …):
+
+```mermaid
+flowchart LR
+  web@{ icon: "logos:react", label: "Web app" } --> api[API]
+  api --> db@{ shape: cyl, icon: "logos:postgresql", label: "Orders" }
+  api -.-> bus@{ icon: "logos:kafka", shape: h-cyl }
+```
+
+In `sequenceDiagram`, `participant DB@{ "type": "database" }` sets the kind (`database`, `queue`, `collections`, `actor`).
+
 ## Lint rules
 
 | Rule | Severity | Catches |
@@ -414,14 +438,14 @@ Colors live in one file: [`src/theme.ts`](https://github.com/scrawl-labs/draftr/
 
 ## Roadmap
 
-- [ ] Incremental layout — keep the boxes a human moved in Excalidraw, re-lay out only the rest
+- [x] Incremental layout — keep the boxes a human moved in Excalidraw, re-lay out only the rest
 - [x] Code → graph extractors (module dependencies, HTTP routes, DB schema)
 - [x] PR bot: before/after diagram of the changed flow on every pull request
 - [ ] Traces → sequence diagrams (OpenTelemetry, and [speedwagon](https://github.com/scrawl-labs/speedwagon)'s incident timelines)
 - [x] draw.io output
 - [x] tldraw output
 - [x] Publish to npm
-- [ ] Icons from Mermaid's `@{ icon: … }` syntax
+- [x] Icons from Mermaid's `@{ icon: … }` syntax
 
 ## Contributing
 

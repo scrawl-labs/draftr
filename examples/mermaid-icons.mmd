@@ -1,0 +1,5 @@
+flowchart LR
+  web@{ icon: "logos:react", label: "Web app" } --> api[API]
+  api --> db@{ shape: cyl, icon: "logos:postgresql", label: "Orders" }
+  api -.-> bus@{ icon: "logos:kafka", shape: h-cyl, label: "order.created" }
+  bus --> mail@{ icon: "fa:envelope", label: "Mailer" }
