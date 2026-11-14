@@ -9,10 +9,12 @@ import { toSvg } from './svg.js';
 import { lint, type LintReport } from './lint.js';
 import { parseMermaid } from './mermaid.js';
 import { extractGraph } from './tidy.js';
+import { applyPins, previousFromExcalidraw, type KeepMode } from './incremental.js';
 import type { DiagramInput } from './schema.js';
 import { IconLibrary, type IconOptions } from './icons/index.js';
 import type { ExcalidrawDoc } from './types.js';
 
+export { resolveIcon, type MermaidOptions } from './mermaid.js';
 export { layoutGraph, toExcalidraw, toDrawio, toTldraw, toSvg, modelToSvg, graphModel, sequenceModel, lint, parseMermaid, extractGraph };
 export { formatReport, type LintReport, type Issue, type IssueCode } from './lint.js';
 export { parseGraph, parseSequence, GraphSchema, SequenceSchema, KINDS } from './schema.js';
@@ -21,6 +23,7 @@ export type { ExcalidrawDoc, ExElement, Scene } from './types.js';
 export type { DiagramModel, DNode, DEdge, DGroup } from './model.js';
 export { THEME } from './theme.js';
 export { extract, extractDeps, extractRoutes, extractSchema, findRoutes, findSchema, EXTRACTORS, type ExtractorName, type ExtractOptions, type Extracted, type Route, type Table, type ForeignKey } from './extract/index.js';
+export { applyPins, pinsFromExcalidraw, previousFromExcalidraw, routeEdges, type KeepMode, type Pin, type Previous } from './incremental.js';
 export { svgToPng } from './render.js';
 export { IconLibrary, type Icon, type IconOptions } from './icons/index.js';
 
@@ -38,6 +41,11 @@ export interface BuildOptions {
   icons?: false | IconOptions | IconLibrary;
   /** Editable output format. Default: excalidraw. */
   format?: Format;
+  /**
+   * A previous Excalidraw file of this diagram. Boxes a person moved there keep their place and only
+   * the rest is laid out again (mode "all": every box that already exists keeps its place).
+   */
+  keep?: { from: ExcalidrawDoc; mode?: KeepMode };
 }
 
 export interface BuildResult {
@@ -74,13 +82,18 @@ export function finish(model: DiagramModel, format: Format = 'excalidraw'): Buil
 /** Graph or sequence input -> model -> { excalidraw, svg, report, file }. */
 export async function build(input: DiagramInput | Record<string, unknown>, opts: BuildOptions = {}): Promise<BuildResult> {
   const icons = iconLib(opts.icons);
-  const model = (input as { type?: string }).type === 'sequence' ? sequenceModel(input, { icons }) : await graphModel(input, { icons });
+  let model = (input as { type?: string }).type === 'sequence' ? sequenceModel(input, { icons }) : await graphModel(input, { icons });
+  if (opts.keep && model.type === 'graph') {
+    const prev = previousFromExcalidraw(opts.keep.from, opts.keep.mode);
+    model = applyPins(model, prev.pins, opts.keep.mode, prev);
+  }
   return finish(model, opts.format);
 }
 
 /** Mermaid source (flowchart or sequenceDiagram) -> build result. */
 export async function buildMermaid(source: string, opts: BuildOptions = {}): Promise<BuildResult> {
-  return build(parseMermaid(source), opts);
+  const icons = iconLib(opts.icons);
+  return build(parseMermaid(source, { icons }), { ...opts, icons });
 }
 
 /** Re-lay out an existing Excalidraw file; returns the clean result plus the lint report of the original. */
