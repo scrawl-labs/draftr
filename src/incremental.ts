@@ -142,7 +142,10 @@ export function applyPins(input: DiagramModel, pins: Record<string, Pin>, mode: 
   const clearOf = (e: DEdge, pts: Pt[]) => pts.slice(1).every((q, i) => model.nodes.every((n) => n.id === e.from || n.id === e.to || !segIntersectsRect(pts[i], q, n)));
   for (const e of model.edges) {
     if (atOld(e.from) && atOld(e.to)) {
-      const k = oldRoutes.findIndex((r) => r.from === e.from && r.to === e.to);
+      // the old arrow must still touch both boxes (a box can move without its arrow following)
+      const touches = (p: Pt, id: string) => { const n = byId[id]; return p.x >= n.x - 4 && p.x <= n.x + n.w + 4 && p.y >= n.y - 4 && p.y <= n.y + n.h + 4; };
+      const k = oldRoutes.findIndex((r) => r.from === e.from && r.to === e.to && r.points.length >= 2
+        && touches(r.points[0], e.from!) && touches(r.points[r.points.length - 1], e.to!));
       if (k >= 0 && clearOf(e, oldRoutes[k].points)) {
         const r = oldRoutes.splice(k, 1)[0];
         e.points = r.points.map((p) => ({ ...p }));
